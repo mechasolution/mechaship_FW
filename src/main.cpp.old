@@ -1,0 +1,283 @@
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <Arduino.h>
+#include <HardwareSerial.h>
+
+#include <micro_ros_platformio.h>
+
+#include <rcl/rcl.h>
+#include <rclc/executor.h>
+#include <rclc/rclc.h>
+
+#include <rmw_microros/rmw_microros.h>
+
+// topic message
+#include <sensor_msgs/msg/imu.h>
+#include <sensor_msgs/msg/magnetic_field.h>
+#include <sensor_msgs/msg/nav_sat_fix.h>
+
+// service message
+#include <mechaship_interfaces/srv/battery.h>
+#include <mechaship_interfaces/srv/key.h>
+#include <mechaship_interfaces/srv/rgb_color.h>
+#include <mechaship_interfaces/srv/throttle_percentage.h>
+#include <mechaship_interfaces/srv/throttle_pulse_width.h>
+#include <std_srvs/srv/trigger.h>
+
+#include "bsp/bsp.h"
+#include "modules/include/modules.h"
+
+#include "hw.h"
+#include "supporter.h"
+
+static HardwareSerial *s_serial;
+
+static rcl_allocator_t s_allocator;
+static rclc_support_t s_support;
+static rclc_executor_t s_executor;
+
+static rcl_node_t s_node;
+
+static rcl_timer_t s_gy87_timer_h;
+static rcl_timer_t s_gps_timer_get_h;
+static rcl_timer_t s_gps_timer_send_h;
+
+static rcl_publisher_t s_gy87_publisher_imu_h; // gy87 imu(자이로+가속도)
+static rcl_publisher_t s_gy87_publisher_mag_h; // gy87 지자기
+static rcl_publisher_t s_gps_publisher_h;      // gps
+
+static rcl_service_t s_gy87_service_offset_calibration_h;
+static std_srvs__srv__Trigger_Request s_gy87_service_offset_calibration_req;
+static std_srvs__srv__Trigger_Response s_gy87_service_offset_calibration_res;
+
+static rcl_service_t s_battery_service_get_data_h;
+static mechaship_interfaces__srv__Battery_Request s_battery_service_get_data_req;
+static mechaship_interfaces__srv__Battery_Response s_battery_service_get_data_res;
+
+static rcl_service_t s_throttle_service_set_percentage_h;
+static mechaship_interfaces__srv__ThrottlePercentage_Request s_throttle_service_set_percentage_req;
+static mechaship_interfaces__srv__ThrottlePercentage_Response s_throttle_service_set_percentage_res;
+
+static rcl_service_t s_throttle_service_set_pulse_width_h;
+static mechaship_interfaces__srv__ThrottlePulseWidth_Request s_throttle_service_set_pulse_width_req;
+static mechaship_interfaces__srv__ThrottlePulseWidth_Response s_throttle_service_set_pulse_width_res;
+
+static rcl_service_t s_key_service_set_h;
+static mechaship_interfaces__srv__Key_Request s_key_service_set_req;
+static mechaship_interfaces__srv__Key_Response s_key_service_set_res;
+
+static rcl_service_t s_rgb_service_set_h;
+static mechaship_interfaces__srv__RGBColor_Request s_rgb_service_set_req;
+static mechaship_interfaces__srv__RGBColor_Response s_rgb_service_set_res;
+
+bsp_throttle_handle_t throttle_h;
+bsp_key_handle_t key_h;
+bsp_neopixel_handler_t neopixel_h;
+
+typedef enum {
+  WAITING_AGENT,
+  AGENT_AVAILABLE,
+  AGENT_CONNECTED,
+  AGENT_DISCONNECTED
+} state_t;
+static state_t s_state;
+
+static bool s_create_entities(void) {
+  s_allocator = rcl_get_default_allocator();
+  RCCHECK(rclc_support_init(&s_support, 0, NULL, &s_allocator));
+
+  size_t executor_cnt = 0;
+  RCCHECK(rclc_node_init_default(&s_node, "mechaship_mcu_driver", "", &s_support));
+
+  // gy87 publisher
+  RCCHECK(rclc_publisher_init_best_effort(&s_gy87_publisher_imu_h, &s_node,
+                                          ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, Imu), "imu/data_raw"));
+  RCCHECK(rclc_publisher_init_best_effort(&s_gy87_publisher_mag_h, &s_node,
+                                          ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, MagneticField), "imu/mag"));
+  RCCHECK(rclc_timer_init_default(&s_gy87_timer_h, &s_support, RCL_MS_TO_NS(10), gy87_timer_callback));
+  executor_cnt++;
+
+  // gps publisher
+  RCCHECK(rclc_publisher_init_best_effort(&s_gps_publisher_h, &s_node,
+                                          ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, NavSatFix), "gps/data"));
+  RCCHECK(rclc_timer_init_default(&s_gps_timer_get_h, &s_support, RCL_MS_TO_NS(1), gps_timer_get_callback));
+  executor_cnt++;
+  RCCHECK(rclc_timer_init_default(&s_gps_timer_send_h, &s_support, RCL_MS_TO_NS(500), gps_timer_send_callback));
+  executor_cnt++;
+
+  // gy87 service
+  RCCHECK(rclc_service_init_default(&s_gy87_service_offset_calibration_h, &s_node,
+                                    ROSIDL_GET_SRV_TYPE_SUPPORT(std_srvs, srv, Trigger), "imu/offset_calibration"));
+  executor_cnt++;
+
+  // battery service
+  RCCHECK(rclc_service_init_default(&s_battery_service_get_data_h, &s_node,
+                                    ROSIDL_GET_SRV_TYPE_SUPPORT(mechaship_interfaces, srv, Battery), "battery/get_data"));
+  executor_cnt++;
+
+  // throttle service
+  RCCHECK(rclc_service_init_default(&s_throttle_service_set_percentage_h, &s_node,
+                                    ROSIDL_GET_SRV_TYPE_SUPPORT(mechaship_interfaces, srv, ThrottlePercentage), "actuators/throttle/set_percentage"));
+  executor_cnt++;
+  RCCHECK(rclc_service_init_default(&s_throttle_service_set_pulse_width_h, &s_node,
+                                    ROSIDL_GET_SRV_TYPE_SUPPORT(mechaship_interfaces, srv, ThrottlePulseWidth), "actuators/throttle/set_pulse_width"));
+  executor_cnt++;
+
+  // key service
+  RCCHECK(rclc_service_init_default(&s_key_service_set_h, &s_node,
+                                    ROSIDL_GET_SRV_TYPE_SUPPORT(mechaship_interfaces, srv, Key), "actuators/key/set"));
+  executor_cnt++;
+
+  // rgb color service
+  RCCHECK(rclc_service_init_default(&s_rgb_service_set_h, &s_node,
+                                    ROSIDL_GET_SRV_TYPE_SUPPORT(mechaship_interfaces, srv, RGBColor), "rgbled/set"));
+  executor_cnt++;
+
+  // excutor
+  RCCHECK(rclc_executor_init(&s_executor, &s_support.context, executor_cnt, &s_allocator));
+  RCCHECK(rclc_executor_add_timer(&s_executor, &s_gy87_timer_h));
+  RCCHECK(rclc_executor_add_timer(&s_executor, &s_gps_timer_get_h));
+  RCCHECK(rclc_executor_add_timer(&s_executor, &s_gps_timer_send_h));
+  RCCHECK(rclc_executor_add_service(&s_executor, &s_gy87_service_offset_calibration_h,
+                                    &s_gy87_service_offset_calibration_req, &s_gy87_service_offset_calibration_res,
+                                    gy98_service_offset_calibration_callback));
+  RCCHECK(rclc_executor_add_service(&s_executor, &s_battery_service_get_data_h,
+                                    &s_battery_service_get_data_req, &s_battery_service_get_data_res,
+                                    battery_service_get_data_callback));
+  RCCHECK(rclc_executor_add_service(&s_executor, &s_throttle_service_set_percentage_h,
+                                    &s_throttle_service_set_percentage_req, &s_throttle_service_set_percentage_res,
+                                    throttle_service_set_percentage_callback));
+  RCCHECK(rclc_executor_add_service(&s_executor, &s_throttle_service_set_pulse_width_h,
+                                    &s_throttle_service_set_pulse_width_req, &s_throttle_service_set_pulse_width_res,
+                                    throttle_service_set_pulse_width_callback));
+  RCCHECK(rclc_executor_add_service(&s_executor, &s_key_service_set_h,
+                                    &s_key_service_set_req, &s_key_service_set_res,
+                                    key_service_set_callback));
+  RCCHECK(rclc_executor_add_service(&s_executor, &s_rgb_service_set_h,
+                                    &s_rgb_service_set_req, &s_rgb_service_set_res,
+                                    rgb_service_set_callback));
+
+  return true;
+}
+
+static void s_destroy_entities(void) {
+  rmw_context_t *rmw_context = rcl_context_get_rmw_context(&s_support.context);
+  (void)rmw_uros_set_context_entity_destroy_session_timeout(rmw_context, 0);
+
+  // gy87 publisher
+  RCCHECK(rcl_timer_fini(&s_gy87_timer_h));
+  RCCHECK(rcl_publisher_fini(&s_gy87_publisher_imu_h, &s_node));
+  RCCHECK(rcl_publisher_fini(&s_gy87_publisher_mag_h, &s_node));
+
+  // gps publisher
+  RCCHECK(rcl_timer_fini(&s_gps_timer_get_h));
+  RCCHECK(rcl_timer_fini(&s_gps_timer_send_h));
+  RCCHECK(rcl_publisher_fini(&s_gps_publisher_h, &s_node));
+
+  // gy87 service
+  RCCHECK(rcl_service_fini(&s_gy87_service_offset_calibration_h, &s_node));
+
+  // battery service
+  RCCHECK(rcl_service_fini(&s_battery_service_get_data_h, &s_node));
+
+  // throttle service
+  RCCHECK(rcl_service_fini(&s_throttle_service_set_percentage_h, &s_node));
+  RCCHECK(rcl_service_fini(&s_throttle_service_set_pulse_width_h, &s_node));
+
+  // key service
+  RCCHECK(rcl_service_fini(&s_key_service_set_h, &s_node));
+
+  // rgb color service
+  RCCHECK(rcl_service_fini(&s_rgb_service_set_h, &s_node));
+
+  rclc_executor_fini(&s_executor);
+  RCCHECK(rcl_node_fini(&s_node));
+  rclc_support_fini(&s_support);
+}
+
+void setup() {
+  // neopixel init
+  neopixel_h.pin_num = 25;
+  neopixel_h.pixel_cnt = 8;
+  bsp_neopixel_init(&neopixel_h);
+  bsp_neopixel_set(&neopixel_h, 255, 0, 0, 0);
+
+  // microros serial init
+  HW_SERIAL_MICROROS.begin(115200);
+  set_microros_serial_transports(HW_SERIAL_MICROROS);
+
+  // gps init
+  bsp_gps_config_t gps_config = {
+      .serial = &HW_SERIAL_GPS,
+      .baudrate = 9600,
+  };
+  bsp_gps_init(&gps_config);
+
+  // battery init
+  bsp_battery_conf_t battery_conf = {
+      .pin = A6,
+      .adc_resolution = 12,
+      .adc_voltage_max = 3.3,
+      .max_voltage = 3.3,
+      .min_voltage = 0,
+  };
+  ERRCHECK(bsp_battery_init(&battery_conf));
+
+  // throttle init
+  throttle_h.pin_num = 13;
+  throttle_h.min_pwr_pulse_width = 1000;
+  throttle_h.max_pwr_pulse_width = 2000;
+  bsp_throttle_init(&throttle_h);
+
+  // key init
+  key_h.pin_num = 14;
+  bsp_key_init(&key_h);
+
+  // gy-87 init
+  ERRCHECK(bsp_gy87_init());
+  ERRCHECK(bsp_gy87_set_offset());
+
+  gy87_timer_callback_init(&s_gy87_publisher_imu_h, &s_gy87_publisher_mag_h);
+  gps_timer_callback_init(&s_gps_publisher_h);
+
+  pinMode(4, OUTPUT);
+  s_state = WAITING_AGENT;
+
+  bsp_neopixel_set(&neopixel_h, 0, 0, 0, 0);
+}
+
+void loop() {
+  switch (s_state) {
+  case WAITING_AGENT:
+    EXECUTE_EVERY_N_MS(500, s_state = (RMW_RET_OK == rmw_uros_ping_agent(100, 1)) ? AGENT_AVAILABLE : WAITING_AGENT;);
+    break;
+  case AGENT_AVAILABLE:
+    s_state = (true == s_create_entities()) ? AGENT_CONNECTED : WAITING_AGENT;
+    if (s_state == WAITING_AGENT) {
+      s_destroy_entities();
+    };
+    break;
+  case AGENT_CONNECTED:
+    EXECUTE_EVERY_N_MS(200, s_state = (RMW_RET_OK == rmw_uros_ping_agent(100, 1)) ? AGENT_CONNECTED : AGENT_DISCONNECTED;);
+    if (s_state == AGENT_CONNECTED) {
+      rclc_executor_spin_some(&s_executor, RCL_MS_TO_NS(100));
+    }
+    break;
+  case AGENT_DISCONNECTED:
+    s_destroy_entities();
+    s_state = WAITING_AGENT;
+    break;
+  default:
+    break;
+  }
+
+  if (s_state == AGENT_CONNECTED) {
+    digitalWrite(4, 1);
+  } else {
+    digitalWrite(4, 0);
+  }
+  delay(0);
+}
