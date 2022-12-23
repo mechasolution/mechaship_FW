@@ -57,13 +57,13 @@ bool bsp_gy87_set_offset(void) {
     gyro_sum.z += data.gyro.z;
     cnt++;
   }
-  accel_offset.x = accel_sum.x / cnt;
-  accel_offset.y = accel_sum.y / cnt;
-  accel_offset.z = accel_sum.z / cnt - 9.8;
+  accel_offset.x += accel_sum.x / cnt;
+  accel_offset.y += accel_sum.y / cnt;
+  accel_offset.z += accel_sum.z / cnt - 9.8;
 
-  gyro_sum.x = gyro_sum.x / cnt;
-  gyro_sum.y = gyro_sum.y / cnt;
-  gyro_sum.z = gyro_sum.z / cnt;
+  gyro_offset.x += gyro_sum.x / cnt;
+  gyro_offset.y += gyro_sum.y / cnt;
+  gyro_offset.z += gyro_sum.z / cnt;
 
   return true;
 }
