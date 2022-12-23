@@ -1,6 +1,7 @@
 #include <string.h>
-#include <time.h>
+#include <timer.h>
 
+#include <Arduino.h>
 #include <rclc/rclc.h>
 
 #include <sensor_msgs/msg/imu.h>
@@ -19,6 +20,13 @@ static sensor_msgs__msg__MagneticField s_mag_msg;
 static timespec s_tv;
 
 static bsp_gy87_rtn_data_t s_gy87_data;
+
+static int clock_gettime(clockid_t unused, struct timespec *tp) {
+  uint64_t m = time_us_64();
+  tp->tv_sec = m / 1000000;
+  tp->tv_nsec = (m % 1000000) * 1000;
+  return 0;
+}
 
 void gy87_timer_callback_init(rcl_publisher_t *gy87_publisher_imu_h_p_, rcl_publisher_t *gy87_publisher_mag_h_p_) {
   s_gy87_publisher_imu_h_p = gy87_publisher_imu_h_p_;
