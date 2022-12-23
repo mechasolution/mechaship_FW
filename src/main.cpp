@@ -77,6 +77,8 @@ bsp_throttle_handle_t throttle_h;
 bsp_key_handle_t key_h;
 bsp_neopixel_handler_t neopixel_h;
 
+UART Serial2(8, 9, NC, NC);
+
 typedef enum {
   WAITING_AGENT,
   AGENT_AVAILABLE,
@@ -199,6 +201,8 @@ static void s_destroy_entities(void) {
 }
 
 void setup() {
+  HW_SERIAL_DEBUG.begin(115200);
+
   // neopixel init
   neopixel_h.pin_num = HW_PIN_NEOPIXEL;
   neopixel_h.pixel_cnt = HW_CFG_NEOPIXEL_PIXEL_CNT;
