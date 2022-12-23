@@ -243,7 +243,7 @@ void setup() {
   gy87_timer_callback_init(&s_gy87_publisher_imu_h, &s_gy87_publisher_mag_h);
   gps_timer_callback_init(&s_gps_publisher_h);
 
-  pinMode(4, OUTPUT);
+  pinMode(HW_PIN_STATUS_LED, OUTPUT);
   s_state = WAITING_AGENT;
 
   bsp_neopixel_set(&neopixel_h, 0, 0, 0, 0);
@@ -275,9 +275,9 @@ void loop() {
   }
 
   if (s_state == AGENT_CONNECTED) {
-    digitalWrite(4, 1);
+    digitalWrite(HW_PIN_STATUS_LED, 1);
   } else {
-    digitalWrite(4, 0);
+    digitalWrite(HW_PIN_STATUS_LED, 0);
   }
   delay(0);
 }
