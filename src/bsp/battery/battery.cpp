@@ -12,7 +12,6 @@ static bool s_init;
 static double s_map_d(double x, double in_min, double in_max, double out_min, double out_max) {
   const double run = in_max - in_min;
   if (run == 0) {
-    log_e("map(): Invalid input range, min == max");
     return -1; // AVR returns -1, SAM returns 0
   }
   const double rise = out_max - out_min;
