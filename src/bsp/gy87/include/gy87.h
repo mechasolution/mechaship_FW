@@ -21,7 +21,10 @@ typedef struct {
 } bsp_gy87_rtn_data_t;
 
 bool bsp_gy87_init(void);
-bool bsp_gy87_set_offset(void);
+bool bsp_gy87_set_offset_auto(void);
+bool bsp_gy87_set_offset(bsp_gy87_vec_t *offset_accel_, bsp_gy87_vec_t *offset_gyro_);
+
 bool bsp_gy87_get_data(bsp_gy87_rtn_data_t *data_p_);
+bool bsp_gy87_get_offset(bsp_gy87_vec_t *offset_accel_, bsp_gy87_vec_t *offset_gyro_);
 
 #endif

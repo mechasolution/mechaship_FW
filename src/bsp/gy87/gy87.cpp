@@ -36,7 +36,7 @@ bool bsp_gy87_init(void) {
   return true;
 }
 
-bool bsp_gy87_set_offset(void) {
+bool bsp_gy87_set_offset_auto(void) {
   if (s_init == false) {
     return false;
   }
@@ -64,6 +64,17 @@ bool bsp_gy87_set_offset(void) {
   gyro_offset.x += gyro_sum.x / cnt;
   gyro_offset.y += gyro_sum.y / cnt;
   gyro_offset.z += gyro_sum.z / cnt;
+
+  return true;
+}
+
+bool bsp_gy87_set_offset(bsp_gy87_vec_t *offset_accel_, bsp_gy87_vec_t *offset_gyro_) {
+  if (s_init == false) {
+    return false;
+  }
+
+  memcpy(&accel_offset, offset_accel_, sizeof(bsp_gy87_vec_t));
+  memcpy(&gyro_offset, offset_gyro_, sizeof(bsp_gy87_vec_t));
 
   return true;
 }
@@ -97,6 +108,17 @@ bool bsp_gy87_get_data(bsp_gy87_rtn_data_t *data_p_) {
   data_p_->mag.x = s_event_mag.magnetic.x;
   data_p_->mag.y = s_event_mag.magnetic.y;
   data_p_->mag.z = s_event_mag.magnetic.z;
+
+  return true;
+}
+
+bool bsp_gy87_get_offset(bsp_gy87_vec_t *offset_accel_, bsp_gy87_vec_t *offset_gyro_) {
+  if (s_init == false) {
+    return false;
+  }
+
+  memcpy(offset_accel_, &accel_offset, sizeof(bsp_gy87_vec_t));
+  memcpy(offset_gyro_, &gyro_offset, sizeof(bsp_gy87_vec_t));
 
   return true;
 }

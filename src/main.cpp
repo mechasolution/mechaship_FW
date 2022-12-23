@@ -242,7 +242,7 @@ void setup() {
 
   // gy-87 init
   ERRCHECK(bsp_gy87_init());
-  ERRCHECK(bsp_gy87_set_offset());
+  ERRCHECK(bsp_gy87_set_offset_auto());
 
   gy87_timer_callback_init(&s_gy87_publisher_imu_h, &s_gy87_publisher_mag_h);
   gps_timer_callback_init(&s_gps_publisher_h);
