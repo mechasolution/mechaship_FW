@@ -30,6 +30,17 @@ bool bsp_key_set(bsp_key_handle_t *handler_p_, uint16_t degree_) {
   }
 
   handler_p_->servo_h->write(degree_);
+  handler_p_->degree = degree_;
+
+  return true;
+}
+
+bool bsp_key_get_degree(bsp_key_handle_t *handler_p_, uint16_t *degree_data_p_) {
+  if (handler_p_->is_init == false) {
+    return false;
+  }
+
+  *degree_data_p_ = handler_p_->degree;
 
   return true;
 }
