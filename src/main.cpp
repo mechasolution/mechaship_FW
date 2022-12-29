@@ -235,10 +235,12 @@ void setup() {
   throttle_h.min_pwr_pulse_width = 1000;
   throttle_h.max_pwr_pulse_width = 2000;
   bsp_throttle_init(&throttle_h);
+  bsp_throttle_set_by_percentage(&throttle_h, 0);
 
   // key init
   key_h.pin_num = HW_PIN_KEY;
   bsp_key_init(&key_h);
+  bsp_key_set(&key_h, 90);
 
   // gy-87 init
   ERRCHECK(bsp_gy87_init());
