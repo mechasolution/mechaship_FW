@@ -16,6 +16,7 @@
 
 // topic message
 #include <sensor_msgs/msg/imu.h>
+#include <sensor_msgs/msg/joint_state.h>
 #include <sensor_msgs/msg/magnetic_field.h>
 #include <sensor_msgs/msg/nav_sat_fix.h>
 
@@ -44,10 +45,12 @@ static rcl_node_t s_node;
 static rcl_timer_t s_gy87_timer_h;
 static rcl_timer_t s_gps_timer_get_h;
 static rcl_timer_t s_gps_timer_send_h;
+static rcl_timer_t s_joint_state_timer_send_h;
 
-static rcl_publisher_t s_gy87_publisher_imu_h; // gy87 imu(자이로+가속도)
-static rcl_publisher_t s_gy87_publisher_mag_h; // gy87 지자기
-static rcl_publisher_t s_gps_publisher_h;      // gps
+static rcl_publisher_t s_gy87_publisher_imu_h;        // gy87 imu(자이로+가속도)
+static rcl_publisher_t s_gy87_publisher_mag_h;        // gy87 지자기
+static rcl_publisher_t s_gps_publisher_h;             // gps
+static rcl_publisher_t s_joint_state_publisher_key_h; // 키 joint state
 
 static rcl_service_t s_gy87_service_offset_calibration_h;
 static std_srvs__srv__Trigger_Request s_gy87_service_offset_calibration_req;
@@ -92,7 +95,11 @@ static bool s_create_entities(void) {
   RCCHECK(rclc_support_init(&s_support, 0, NULL, &s_allocator));
 
   size_t executor_cnt = 0;
-  RCCHECK(rclc_node_init_default(&s_node, "mechaship_mcu_driver", HW_CFG_NAMESPACE, &s_support));
+
+  s_node = rcl_get_zero_initialized_node();
+  rcl_node_options_t node_ops = rcl_node_get_default_options();
+  node_ops.domain_id = HW_CFG_ROS_DOMAIN_ID;
+  RCCHECK(rclc_node_init_with_options(&s_node, "mechaship_mcu_driver", "", &s_support, &node_ops));
 
   // gy87 publisher
   RCCHECK(rclc_publisher_init_best_effort(&s_gy87_publisher_imu_h, &s_node,
@@ -108,6 +115,12 @@ static bool s_create_entities(void) {
   RCCHECK(rclc_timer_init_default(&s_gps_timer_get_h, &s_support, RCL_MS_TO_NS(1), gps_timer_get_callback));
   executor_cnt++;
   RCCHECK(rclc_timer_init_default(&s_gps_timer_send_h, &s_support, RCL_MS_TO_NS(500), gps_timer_send_callback));
+  executor_cnt++;
+
+  // joint state publisher
+  RCCHECK(rclc_publisher_init_default(&s_joint_state_publisher_key_h, &s_node,
+                                      ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState), "joint_states"));
+  RCCHECK(rclc_timer_init_default(&s_joint_state_timer_send_h, &s_support, RCL_MS_TO_NS(100), joint_state_timer_send_callback));
   executor_cnt++;
 
   // gy87 service
@@ -143,6 +156,7 @@ static bool s_create_entities(void) {
   RCCHECK(rclc_executor_add_timer(&s_executor, &s_gy87_timer_h));
   RCCHECK(rclc_executor_add_timer(&s_executor, &s_gps_timer_get_h));
   RCCHECK(rclc_executor_add_timer(&s_executor, &s_gps_timer_send_h));
+  RCCHECK(rclc_executor_add_timer(&s_executor, &s_joint_state_timer_send_h));
   RCCHECK(rclc_executor_add_service(&s_executor, &s_gy87_service_offset_calibration_h,
                                     &s_gy87_service_offset_calibration_req, &s_gy87_service_offset_calibration_res,
                                     gy98_service_offset_calibration_callback));
@@ -178,6 +192,10 @@ static void s_destroy_entities(void) {
   RCCHECK(rcl_timer_fini(&s_gps_timer_get_h));
   RCCHECK(rcl_timer_fini(&s_gps_timer_send_h));
   RCCHECK(rcl_publisher_fini(&s_gps_publisher_h, &s_node));
+
+  // joint state publisher
+  RCCHECK(rcl_timer_fini(&s_joint_state_timer_send_h));
+  RCCHECK(rcl_publisher_fini(&s_joint_state_publisher_key_h, &s_node));
 
   // gy87 service
   RCCHECK(rcl_service_fini(&s_gy87_service_offset_calibration_h, &s_node));
@@ -248,6 +266,7 @@ void setup() {
 
   gy87_timer_callback_init(&s_gy87_publisher_imu_h, &s_gy87_publisher_mag_h);
   gps_timer_callback_init(&s_gps_publisher_h);
+  joint_state_timer_callback_init(&s_joint_state_publisher_key_h, &key_h);
 
   pinMode(HW_PIN_STATUS_LED, OUTPUT);
   s_state = WAITING_AGENT;

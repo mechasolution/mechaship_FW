@@ -8,6 +8,7 @@
 
 #include "battery_service_callback.h"
 #include "gy87_service_callback.h"
+#include "joint_state_timer_callback.h"
 #include "key_service_callback.h"
 #include "rgb_service_callback.h"
 #include "throttle_service_callback.h"
