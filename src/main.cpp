@@ -250,7 +250,7 @@ void setup() {
 
   // throttle init
   throttle_h.pin_num = HW_PIN_THROTTLE;
-  throttle_h.min_pwr_pulse_width = 1000;
+  throttle_h.min_pwr_pulse_width = 1500;
   throttle_h.max_pwr_pulse_width = 2000;
   bsp_throttle_init(&throttle_h);
   bsp_throttle_set_by_percentage(&throttle_h, 0);
