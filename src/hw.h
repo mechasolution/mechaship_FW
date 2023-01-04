@@ -28,4 +28,7 @@
 //--------------GPS--------------//
 #define HW_SERIAL_GPS Serial2 // GPS 연결 시리얼 포트
 
+//--------------기타--------------//
+#define HW_PIN_RESET 22 // 리셋핀 연결된 GPIO
+
 #endif

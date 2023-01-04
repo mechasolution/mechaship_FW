@@ -219,6 +219,8 @@ static void s_destroy_entities(void) {
 }
 
 void setup() {
+  digitalWrite(HW_PIN_RESET, HIGH);
+
   HW_SERIAL_DEBUG.begin(115200);
 
   // neopixel init
@@ -269,6 +271,7 @@ void setup() {
   joint_state_timer_callback_init(&s_joint_state_publisher_key_h, &key_h);
 
   pinMode(HW_PIN_STATUS_LED, OUTPUT);
+  digitalWrite(HW_PIN_STATUS_LED, LOW);
   s_state = WAITING_AGENT;
 
   bsp_neopixel_set(&neopixel_h, 0, 0, 0, 0);
