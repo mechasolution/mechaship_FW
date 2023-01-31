@@ -19,11 +19,11 @@
 #define HW_SERIAL_DEBUG Serial // 디버깅용 시리얼 포트
 
 //--------------배터리--------------//
-#define HW_PIN_BATTERY A0 // 배터리 전압 측정용 ADC 포트 번호
+#define HW_PIN_BATTERY A2 // 배터리 전압 측정용 ADC 포트 번호
 
 //--------------액추에이터--------------//
-#define HW_PIN_THROTTLE 10 // 쓰로틀 PWM 핀 번호
-#define HW_PIN_KEY 11      // 키 PWM 핀 번호
+#define HW_PIN_THROTTLE 11 // 쓰로틀 PWM 핀 번호
+#define HW_PIN_KEY 10      // 키 PWM 핀 번호
 
 //--------------GPS--------------//
 #define HW_SERIAL_GPS Serial2 // GPS 연결 시리얼 포트
