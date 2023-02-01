@@ -237,15 +237,20 @@ void setup() {
   bsp_gps_config_t gps_config = {
       .serial = &HW_SERIAL_GPS,
       .baudrate = 9600,
+      .pin_status_led = HW_PIN_GPS_STATUS_LED,
   };
   bsp_gps_init(&gps_config);
 
   // battery init
   bsp_battery_conf_t battery_conf = {
-      .pin = HW_PIN_BATTERY,
+      .pin_adc = HW_PIN_BATTERY,
+      .pin_20p_led = HW_PIN_BATTERY_20P_LED,
+      .pin_40p_led = HW_PIN_BATTERY_40P_LED,
+      .pin_60p_led = HW_PIN_BATTERY_60P_LED,
+      .pin_80p_led = HW_PIN_BATTERY_80P_LED,
       .adc_resolution = 12,
       .adc_voltage_max = 3.3,
-      .max_voltage = 3.3,
+      .max_voltage = 2.1,
       .min_voltage = 0,
   };
   ERRCHECK(bsp_battery_init(&battery_conf));

@@ -19,6 +19,7 @@ typedef struct {
 typedef struct {
   HardwareSerial *serial;
   unsigned long baudrate;
+  uint8_t pin_status_led; // 상태 표시 LED GPIO
 } bsp_gps_config_t;
 
 bool bsp_gps_init(bsp_gps_config_t *config_p_);
