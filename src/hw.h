@@ -35,5 +35,6 @@
 
 //--------------기타--------------//
 #define HW_PIN_RESET 22 // 리셋핀 연결된 GPIO
+#define HW_PIN_EMO 15   // 비상정지 스위치 연결된 GPIO
 
 #endif

@@ -19,6 +19,7 @@
 #include <sensor_msgs/msg/joint_state.h>
 #include <sensor_msgs/msg/magnetic_field.h>
 #include <sensor_msgs/msg/nav_sat_fix.h>
+#include <std_msgs/msg/bool.h>
 
 // service message
 #include <mechaship_interfaces/srv/battery.h>
@@ -51,6 +52,9 @@ static rcl_publisher_t s_gy87_publisher_imu_h;        // gy87 imu(자이로+가�
 static rcl_publisher_t s_gy87_publisher_mag_h;        // gy87 지자기
 static rcl_publisher_t s_gps_publisher_h;             // gps
 static rcl_publisher_t s_joint_state_publisher_key_h; // 키 joint state
+static rcl_publisher_t s_emo_publisher_h;             // EMO
+
+static std_msgs__msg__Bool s_emo_msg;
 
 static rcl_service_t s_gy87_service_offset_calibration_h;
 static std_srvs__srv__Trigger_Request s_gy87_service_offset_calibration_req;
@@ -122,6 +126,10 @@ static bool s_create_entities(void) {
                                       ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState), "joint_states"));
   RCCHECK(rclc_timer_init_default(&s_joint_state_timer_send_h, &s_support, RCL_MS_TO_NS(100), joint_state_timer_send_callback));
   executor_cnt++;
+
+  // EMO publisher
+  RCCHECK(rclc_publisher_init_default(&s_emo_publisher_h, &s_node,
+                                      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool), "emo_event"));
 
   // gy87 service
   RCCHECK(rclc_service_init_default(&s_gy87_service_offset_calibration_h, &s_node,
@@ -197,6 +205,9 @@ static void s_destroy_entities(void) {
   RCCHECK(rcl_timer_fini(&s_joint_state_timer_send_h));
   RCCHECK(rcl_publisher_fini(&s_joint_state_publisher_key_h, &s_node));
 
+  // EMO publisher
+  RCCHECK(rcl_publisher_fini(&s_emo_publisher_h, &s_node));
+
   // gy87 service
   RCCHECK(rcl_service_fini(&s_gy87_service_offset_calibration_h, &s_node));
 
@@ -218,6 +229,60 @@ static void s_destroy_entities(void) {
   rclc_support_fini(&s_support);
 }
 
+static void s_monitor_status() {
+  bool is_emo = digitalRead(HW_PIN_EMO);
+  bool is_agent = s_state == AGENT_CONNECTED;
+
+  static bool is_emo_last = false;
+  static bool is_agent_last = true;
+  static unsigned long nxt_blink_time = 0;
+  static bool toggle = false;
+  if (is_emo != is_emo_last || is_agent != is_agent_last) {
+    is_emo_last = is_emo;
+    is_agent_last = is_agent;
+    if (is_emo == true) {
+      bsp_throttle_set_emo(&throttle_h);
+      bsp_key_set_emo(&key_h);
+      s_emo_msg.data = true;
+      rcl_publish(&s_emo_publisher_h, &s_emo_msg, NULL);
+    } else {
+      bsp_throttle_reset_emo(&throttle_h);
+      bsp_key_reset_emo(&key_h);
+      bsp_neopixel_set(&neopixel_h, 0, 0, 0, 0);
+      digitalWrite(HW_PIN_STATUS_LED, HIGH);
+      s_emo_msg.data = false;
+      rcl_publish(&s_emo_publisher_h, &s_emo_msg, NULL);
+      toggle = false;
+    }
+    if (is_agent == true) {
+      bsp_neopixel_set(&neopixel_h, 0, 0, 0, 0);
+      digitalWrite(HW_PIN_STATUS_LED, HIGH);
+      toggle = false;
+    }
+    nxt_blink_time = 0;
+    toggle = false;
+  }
+  if (is_agent != is_agent_last) {
+    is_agent_last = is_agent;
+  }
+
+  if (nxt_blink_time <= millis()) {
+    if (is_emo == true) {
+      bsp_neopixel_set(&neopixel_h, ((toggle = !toggle) == true) ? 255 : 0, 0, 0, 0);
+      digitalWrite(HW_PIN_STATUS_LED, (toggle == true) ? HIGH : LOW);
+      nxt_blink_time = millis() + 500;
+      return;
+    }
+    if (is_agent == false) {
+      bsp_neopixel_set(&neopixel_h, ((toggle = !toggle) == true) ? 255 : 0, (toggle == true) ? 100 : 0, 0, 0);
+      digitalWrite(HW_PIN_STATUS_LED, (toggle == true) ? HIGH : LOW);
+      nxt_blink_time = millis() + 1000;
+      return;
+    }
+  }
+  return;
+}
+
 void setup() {
   digitalWrite(HW_PIN_RESET, HIGH);
 
@@ -227,7 +292,7 @@ void setup() {
   neopixel_h.pin_num = HW_PIN_NEOPIXEL;
   neopixel_h.pixel_cnt = HW_CFG_NEOPIXEL_PIXEL_CNT;
   bsp_neopixel_init(&neopixel_h);
-  bsp_neopixel_set(&neopixel_h, 255, 0, 0, 0);
+  bsp_neopixel_set(&neopixel_h, 255, 100, 0, 0);
 
   // microros serial init
   HW_SERIAL_MICROROS.begin(115200);
@@ -277,6 +342,8 @@ void setup() {
 
   pinMode(HW_PIN_STATUS_LED, OUTPUT);
   digitalWrite(HW_PIN_STATUS_LED, LOW);
+  pinMode(HW_PIN_EMO, INPUT_PULLUP);
+
   s_state = WAITING_AGENT;
 
   bsp_neopixel_set(&neopixel_h, 0, 0, 0, 0);
@@ -307,10 +374,8 @@ void loop() {
     break;
   }
 
-  if (s_state == AGENT_CONNECTED) {
-    digitalWrite(HW_PIN_STATUS_LED, 1);
-  } else {
-    digitalWrite(HW_PIN_STATUS_LED, 0);
-  }
+  s_monitor_status();
+
+  EXECUTE_EVERY_N_MS(1000, bsp_battery_update_led());
   delay(0);
 }

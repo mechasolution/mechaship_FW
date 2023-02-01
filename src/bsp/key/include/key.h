@@ -14,6 +14,7 @@ typedef struct {
   uint8_t pin_num; // ESC가 연결된 핀 번호
 
   bool is_init;
+  bool is_emo;
   Servo *servo_h;
   uint16_t degree; // read 메소드 데이터가 부정확해서 사용자가 입력한 값 저장함
 } bsp_key_handle_t;
@@ -21,5 +22,7 @@ typedef struct {
 bool bsp_key_init(bsp_key_handle_t *handler_p_);
 bool bsp_key_set(bsp_key_handle_t *handler_p_, uint16_t degree_);
 bool bsp_key_get_degree(bsp_key_handle_t *handler_p_, uint16_t *degree_data_p_);
+void bsp_key_set_emo(bsp_key_handle_t *handler_p_);
+void bsp_key_reset_emo(bsp_key_handle_t *handler_p_);
 
 #endif

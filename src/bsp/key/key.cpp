@@ -1,3 +1,5 @@
+#include <stddef.h>
+
 #include "include/key.h"
 
 static long s_map(long x, long in_min, long in_max, long out_min, long out_max) {
@@ -25,7 +27,7 @@ bool bsp_key_init(bsp_key_handle_t *handler_p_) {
 }
 
 bool bsp_key_set(bsp_key_handle_t *handler_p_, uint16_t degree_) {
-  if (handler_p_->is_init == false) {
+  if (handler_p_->is_init == false || handler_p_->is_emo == true) {
     return false;
   }
 
@@ -43,4 +45,18 @@ bool bsp_key_get_degree(bsp_key_handle_t *handler_p_, uint16_t *degree_data_p_) 
   *degree_data_p_ = handler_p_->degree;
 
   return true;
+}
+
+void bsp_key_set_emo(bsp_key_handle_t *handler_p_) {
+  if (handler_p_ == NULL) {
+    return;
+  }
+  handler_p_->is_emo = true;
+}
+
+void bsp_key_reset_emo(bsp_key_handle_t *handler_p_) {
+  if (handler_p_ == NULL) {
+    return;
+  }
+  handler_p_->is_emo = false;
 }
