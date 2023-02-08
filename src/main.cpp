@@ -238,31 +238,31 @@ static void s_monitor_status() {
   static unsigned long nxt_blink_time = 0;
   static bool toggle = false;
   if (is_emo != is_emo_last || is_agent != is_agent_last) {
-    is_emo_last = is_emo;
-    is_agent_last = is_agent;
-    if (is_emo == true) {
+    if (is_emo == true && is_emo != is_emo_last) {
+      HW_SERIAL_DEBUG.println("[\"s_monitor_status\"]EMO Pressed!");
       bsp_throttle_set_emo(&throttle_h);
       bsp_key_set_emo(&key_h);
       s_emo_msg.data = true;
       rcl_publish(&s_emo_publisher_h, &s_emo_msg, NULL);
-    } else {
+    } else if (is_emo != is_emo_last) {
+      HW_SERIAL_DEBUG.println("[\"s_monitor_status\"]EMO Released!");
       bsp_throttle_reset_emo(&throttle_h);
       bsp_key_reset_emo(&key_h);
       bsp_neopixel_set(&neopixel_h, 0, 0, 0, 0);
       digitalWrite(HW_PIN_STATUS_LED, HIGH);
       s_emo_msg.data = false;
       rcl_publish(&s_emo_publisher_h, &s_emo_msg, NULL);
-      toggle = false;
     }
-    if (is_agent == true) {
+    if (is_agent == true && is_agent != is_agent_last) {
+      HW_SERIAL_DEBUG.println("[\"s_monitor_status\"]Agent Connected!");
       bsp_neopixel_set(&neopixel_h, 0, 0, 0, 0);
       digitalWrite(HW_PIN_STATUS_LED, HIGH);
-      toggle = false;
+    } else if (is_agent != is_agent_last) {
+      HW_SERIAL_DEBUG.println("[\"s_monitor_status\"]Agent Disconnected!");
     }
     nxt_blink_time = 0;
     toggle = false;
-  }
-  if (is_agent != is_agent_last) {
+    is_emo_last = is_emo;
     is_agent_last = is_agent;
   }
 
@@ -377,5 +377,8 @@ void loop() {
   s_monitor_status();
 
   EXECUTE_EVERY_N_MS(1000, bsp_battery_update_led());
+  static uint64_t i;
+  EXECUTE_EVERY_N_MS(1000, Serial.println(i++));
+
   delay(0);
 }
