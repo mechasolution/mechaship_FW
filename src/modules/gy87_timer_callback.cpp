@@ -55,9 +55,9 @@ void gy87_timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
   s_imu_msg.linear_acceleration.y = s_gy87_data.accel.y;
   s_imu_msg.linear_acceleration.z = s_gy87_data.accel.z;
 
-  s_mag_msg.magnetic_field.x = s_gy87_data.mag.x * 1000000;
-  s_mag_msg.magnetic_field.y = s_gy87_data.mag.y * 1000000;
-  s_mag_msg.magnetic_field.z = s_gy87_data.mag.z * 1000000;
+  s_mag_msg.magnetic_field.x = s_gy87_data.mag.x / 1000000;
+  s_mag_msg.magnetic_field.y = s_gy87_data.mag.y / 1000000;
+  s_mag_msg.magnetic_field.z = s_gy87_data.mag.z / 1000000;
 
   rcl_publish(s_gy87_publisher_imu_h_p, &s_imu_msg, NULL);
   rcl_publish(s_gy87_publisher_mag_h_p, &s_mag_msg, NULL);
