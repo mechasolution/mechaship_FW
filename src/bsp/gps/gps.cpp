@@ -31,10 +31,14 @@ bool bsp_gps_loop(void) {
     return false;
   }
 
-  s_gps_p->read();
-  if (s_gps_p->newNMEAreceived()) {
-    if (!s_gps_p->parse(s_gps_p->lastNMEA())) {
-      return true;
+  for (int i = 0; i < 100; i++) {
+    for (int j = 0; j < 10; j++) {
+      char ret = s_gps_p->read();
+      if (ret == 0)
+        continue;
+      if (s_gps_p->newNMEAreceived()) {
+        s_gps_p->parse(s_gps_p->lastNMEA());
+      }
     }
   }
   return true;
