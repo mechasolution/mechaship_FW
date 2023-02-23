@@ -8,7 +8,7 @@
 
 //--------------micro ROS--------------//
 #define HW_SERIAL_MICROROS Serial1 // UART 포트
-#define HW_CFG_ROS_DOMAIN_ID 1     // 도메인 아이디 (0~101, 215~232)
+#define HW_CFG_ROS_DOMAIN_ID 0     // 도메인 아이디 (0~101, 215~232)
 
 //--------------네오픽셀--------------//
 #define HW_PIN_NEOPIXEL 6           // 네오픽셀 핀 번호
