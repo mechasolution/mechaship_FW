@@ -16,12 +16,11 @@ static timespec s_tv;
 
 static bsp_gps_rtn_data_t s_gps_data;
 
-static int clock_gettime(clockid_t unused, struct timespec *tp)
-{
-    uint64_t m = time_us_64();
-    tp->tv_sec = m / 1000000;
-    tp->tv_nsec = (m % 1000000) * 1000;
-    return 0;
+static int clock_gettime(clockid_t unused, struct timespec *tp) {
+  uint64_t m = time_us_64();
+  tp->tv_sec = m / 1000000;
+  tp->tv_nsec = (m % 1000000) * 1000;
+  return 0;
 }
 
 void gps_timer_callback_init(rcl_publisher_t *gps_publisher_h_p_) {
@@ -35,7 +34,7 @@ void gps_timer_callback_init(rcl_publisher_t *gps_publisher_h_p_) {
 
 void gps_timer_get_callback(rcl_timer_t *timer, int64_t last_call_time) {
   RCL_UNUSED(last_call_time);
-  
+
   bsp_gps_loop();
 }
 
