@@ -116,7 +116,7 @@ static bool s_create_entities(void) {
   // gps publisher
   RCCHECK(rclc_publisher_init_best_effort(&s_gps_publisher_h, &s_node,
                                           ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, NavSatFix), "gps/data"));
-  RCCHECK(rclc_timer_init_default(&s_gps_timer_get_h, &s_support, RCL_MS_TO_NS(1), gps_timer_get_callback));
+  RCCHECK(rclc_timer_init_default(&s_gps_timer_get_h, &s_support, RCL_MS_TO_NS(100), gps_timer_get_callback));
   executor_cnt++;
   RCCHECK(rclc_timer_init_default(&s_gps_timer_send_h, &s_support, RCL_MS_TO_NS(500), gps_timer_send_callback));
   executor_cnt++;
@@ -377,8 +377,4 @@ void loop() {
   s_monitor_status();
 
   EXECUTE_EVERY_N_MS(1000, bsp_battery_update_led());
-  static uint64_t i;
-  EXECUTE_EVERY_N_MS(1000, Serial.println(i++));
-
-  delay(0);
 }
