@@ -315,7 +315,7 @@ void setup() {
       .pin_80p_led = HW_PIN_BATTERY_80P_LED,
       .adc_resolution = 12,
       .adc_voltage_max = 3.3,
-      .max_voltage = 2.1,
+      .max_voltage = 2.9,
       .min_voltage = 0,
   };
   ERRCHECK(bsp_battery_init(&battery_conf));
