@@ -1,0 +1,48 @@
+add_executable(mechaship_fw)
+
+file(GLOB_RECURSE SRC_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/*.c
+)
+
+file(GLOB_RECURSE PIO_FILES_LIST
+  ${CMAKE_CURRENT_SOURCE_DIR}/*.pio
+)
+
+target_sources(mechaship_fw PRIVATE
+  ${SRC_FILES}
+)
+
+target_include_directories(mechaship_fw PRIVATE
+  hw
+  app
+  mw
+
+  ../lib/libmicroros/include
+  ../include
+)
+
+target_link_libraries(mechaship_fw
+  pico_stdlib
+  pico_unique_id
+
+  hardware_gpio
+  hardware_uart
+  hardware_pwm
+  hardware_i2c
+  hardware_pio
+  hardware_adc
+
+  FreeRTOS-Kernel-Heap4
+  microros
+)
+
+set_target_properties(mechaship_fw PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+pico_generate_pio_header(mechaship_fw ${PIO_FILES_LIST})
+
+add_compile_definitions(PICO_UART_ENABLE_CRLF_SUPPORT=0)
+add_compile_definitions(PICO_STDIO_ENABLE_CRLF_SUPPORT=0)
+add_compile_definitions(PICO_STDIO_DEFAULT_CRLF=0)
+pico_add_extra_outputs(mechaship_fw)

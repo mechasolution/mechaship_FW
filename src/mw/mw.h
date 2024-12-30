@@ -1,0 +1,8 @@
+#ifndef D5D70217_F45F_4A99_8A4F_429DB05AF806_H_
+#define D5D70217_F45F_4A99_8A4F_429DB05AF806_H_
+
+#include <stdbool.h>
+
+bool mw_init(void);
+
+#endif /* D5D70217_F45F_4A99_8A4F_429DB05AF806_H_ */
