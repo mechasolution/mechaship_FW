@@ -36,7 +36,7 @@ static void s_lcd_task(void *arg) {
   lcd_set_string("ACT OFF     B   ");
 
   for (;;) {
-    if (xQueueReceive(lcd_task_queue_hd, &lcd_queue_data, portTICK_PERIOD_MS) == pdTRUE) {
+    if (xQueueReceive(lcd_task_queue_hd, &lcd_queue_data, portMAX_DELAY) == pdTRUE) {
       switch (lcd_queue_data.command) {
       case LCD_TASK_COMMAND_CONNECTION:
         lcd_set_cursor(0, 0);
