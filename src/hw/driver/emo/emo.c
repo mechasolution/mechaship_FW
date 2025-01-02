@@ -10,5 +10,5 @@ bool emo_init(void) {
 }
 
 bool emo_get_status(void) {
-  return !gpio_get(HWCONF_PIN_EMO_SWITCH);
+  return gpio_get(HWCONF_PIN_EMO_SWITCH);
 }
