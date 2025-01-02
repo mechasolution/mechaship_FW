@@ -71,6 +71,10 @@ static void s_actuator_task(void *arg) {
         led_set_s(queue_data.data.led_s.value);
         break;
 
+      case ACTUATOR_TASK_COMMAND_LED_F:
+        led_set_f(queue_data.data.led_f.value);
+        break;
+
       case ACTUATOR_TASK_COMMAND_RGBWLED:
         rgbw_led_set_pixels(rgbw_led_get_color(
             queue_data.data.rgbwled.red,

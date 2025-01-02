@@ -17,6 +17,7 @@ typedef struct {
     ACTUATOR_TASK_COMMAND_LED_1,
     ACTUATOR_TASK_COMMAND_LED_2,
     ACTUATOR_TASK_COMMAND_LED_S,
+    ACTUATOR_TASK_COMMAND_LED_F,
     ACTUATOR_TASK_COMMAND_RGBWLED,
     ACTUATOR_TASK_COMMAND_POWER,
     ACTUATOR_TASK_COMMAND_TONE,
@@ -41,6 +42,10 @@ typedef struct {
     struct { // ACTUATOR_TASK_COMMAND_LED_S
       bool value;
     } led_s;
+
+    struct { // ACTUATOR_TASK_COMMAND_LED_F
+      bool value;
+    } led_f;
 
     struct { // ACTUATOR_TASK_COMMAND_RGBWLED
       uint8_t red;
