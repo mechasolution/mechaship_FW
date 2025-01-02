@@ -17,6 +17,8 @@ typedef struct {
     LCD_TASK_COMMAND_ACT_STATUS,
     LCD_TASK_COMMAND_BAT_STATUS,
     LCD_TASK_COMMAND_POWER_OFF,
+
+    LCD_TASK_COMMAND_FRAME,
   } command;
   union {
     struct {
@@ -44,6 +46,10 @@ typedef struct {
       uint8_t countdown;
       bool is_low_power;
     } power_off;
+
+    struct {
+      uint8_t _;
+    } frame;
   } data;
 } lcd_task_queue_data_t;
 

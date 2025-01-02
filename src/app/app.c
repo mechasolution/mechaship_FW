@@ -35,6 +35,8 @@ static void start_sequence(void) {
   lcd_set_string("0123456789abcdef");
   lcd_set_cursor(1, 0);
   lcd_set_string("ghijklmnopqrstuv");
+  lcd_next_frame();
+
   led_set_1(true), led_set_2(true), led_set_f(true), led_set_s(true);
   rgbw_led_set_pixels(rgbw_led_get_color(5, 5, 5, 5));
   tone_set(741);
@@ -50,6 +52,8 @@ static void start_sequence(void) {
   }
 
   lcd_clear();
+  lcd_next_frame();
+
   led_set_1(false), led_set_2(false), led_set_f(false), led_set_s(false);
   rgbw_led_clear_all();
 
