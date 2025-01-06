@@ -78,10 +78,10 @@ float actuator_get_key_degree(void) {
 }
 
 void actuator_set_key_degree(float degree) {
-  if (degree < 0.0f) {
-    degree = 0.0f;
-  } else if (degree > 180.0f) {
-    degree = 180.0f;
+  if (degree < s_key_min) {
+    degree = s_key_min;
+  } else if (degree > s_key_max) {
+    degree = s_key_max;
   }
 
   uint16_t pulse = s_key_pulse_0_degree + (uint16_t)((s_key_pulse_180_degree - s_key_pulse_0_degree) * (degree / 180.0f));
