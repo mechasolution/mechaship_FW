@@ -32,7 +32,7 @@ bool entity_create(void) {
   RCCHECK_GOTO(TAG, rcl_init_options_set_domain_id(&s_init_options, s_domain_id), entity_create_failed);
 
   RCCHECK_GOTO(TAG, rclc_support_init_with_options(&s_support, 0, NULL, &s_init_options, &s_allocator), entity_create_failed);
-  RCCHECK_GOTO(TAG, rclc_node_init_default(&s_node, "mcu_node", "/mechaship", &s_support), entity_create_failed);
+  RCCHECK_GOTO(TAG, rclc_node_init_default(&s_node, "mcu_node", "/", &s_support), entity_create_failed);
 
   // topic
   publisher_create(&s_node);
