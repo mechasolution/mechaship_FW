@@ -70,9 +70,7 @@ static void s_lcd_task(void *arg) {
 
       case LCD_TASK_COMMAND_ACT_POWER:
         if (lcd_queue_data.data.act_power.status) {
-          lcd_set_cursor(1, 0);
-          lcd_set_string("Actuator ON ");
-          vTaskDelay(1000);
+          ;
         } else {
           lcd_set_cursor(1, 0);
           lcd_set_string("ACT OFF     ");
@@ -105,9 +103,19 @@ static void s_lcd_task(void *arg) {
         break;
 
       case LCD_TASK_COMMAND_ACT_STATUS:
-        sprintf(line_buff, "T%3d K%3d   ",
-                lcd_queue_data.data.act_status.throttle,
-                lcd_queue_data.data.act_status.key);
+        if (lcd_queue_data.data.act_status.throttle == 0) {
+          sprintf(line_buff, "T OFF K%3d  ",
+                  lcd_queue_data.data.act_status.key);
+        } else if (lcd_queue_data.data.act_status.throttle > 0) {
+          sprintf(line_buff, "T+%3d K%3d  ",
+                  lcd_queue_data.data.act_status.throttle,
+                  lcd_queue_data.data.act_status.key);
+        } else {
+          lcd_queue_data.data.act_status.throttle *= -1;
+          sprintf(line_buff, "T-%3d K%3d  ",
+                  lcd_queue_data.data.act_status.throttle,
+                  lcd_queue_data.data.act_status.key);
+        }
         lcd_set_cursor(1, 0);
         lcd_set_string(line_buff);
         break;

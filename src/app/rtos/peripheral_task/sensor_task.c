@@ -38,7 +38,7 @@ static void s_sensor_task(void *arg) {
     if (power_get_act()) {
       lcd_queue_data.command = LCD_TASK_COMMAND_ACT_STATUS;
       lcd_queue_data.data.act_status.key = (uint8_t)roundf(actuator_get_key_degree());
-      lcd_queue_data.data.act_status.throttle = (uint8_t)roundf(actuator_get_thruster_percentage());
+      lcd_queue_data.data.act_status.throttle = (int8_t)roundf(actuator_get_thruster_percentage());
       xQueueSend(lcd_task_queue_hd, &lcd_queue_data, 0);
     }
     lcd_queue_data.command = LCD_TASK_COMMAND_BAT_STATUS;

@@ -35,7 +35,7 @@ typedef struct {
 
     struct {
       uint8_t key;
-      uint8_t throttle;
+      int8_t throttle;
     } act_status;
 
     struct {
