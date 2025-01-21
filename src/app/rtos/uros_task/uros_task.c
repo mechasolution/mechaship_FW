@@ -33,6 +33,8 @@ static StaticQueue_t s_uros_task_pub_queue_struct;
 static lcd_task_queue_data_t s_lcd_queue_data;
 static actuator_task_queue_data_t s_actuator_queue_data;
 
+static uint32_t s_last_ip = 0;
+
 static void s_uros_sub_cb(
     const uros_sub_data_flag_t data_flag,
     const uros_sub_data_t *data) {
@@ -81,6 +83,11 @@ static void s_uros_sub_cb(
     s_lcd_queue_data.command = LCD_TASK_COMMAND_IP_ADDR;
     s_lcd_queue_data.data.ip_addr.ipv4 = data->ip_addr.value;
     xQueueSend(lcd_task_queue_hd, &s_lcd_queue_data, 0);
+
+    if (s_last_ip != data->ip_addr.value) { // ip 주소 변경 시 uros 재시작 필요
+      uros_set_domain_id(switch8_get_sum());
+      s_last_ip = data->ip_addr.value;
+    }
     break;
 
   case UROS_SUB_NONE:
