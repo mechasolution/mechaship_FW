@@ -108,8 +108,8 @@ float actuator_get_thruster_percentage(void) {
                       (float)(s_thruster_pulse_100_percentage - s_thruster_pulse_0_percentage)) *
                      100.0f;
 
-  if (percentage < 0.0f) {
-    percentage = 0.0f;
+  if (percentage < -100.0f) {
+    percentage = -100.0f;
   } else if (percentage > 100.0f) {
     percentage = 100.0f;
   }
@@ -118,13 +118,13 @@ float actuator_get_thruster_percentage(void) {
 }
 
 void actuator_set_thruster_percentage(float percentage) {
-  if (percentage < 0.0f) {
-    percentage = 0.0f;
+  if (percentage < -100.0f) {
+    percentage = -100.0f;
   } else if (percentage > 100.0f) {
     percentage = 100.0f;
   }
 
-  uint16_t pulse = s_thruster_pulse_0_percentage + (uint16_t)((s_thruster_pulse_100_percentage - s_thruster_pulse_0_percentage) * (percentage / 100.0f));
+  uint16_t pulse = s_thruster_pulse_0_percentage + (int16_t)((s_thruster_pulse_100_percentage - s_thruster_pulse_0_percentage) * (percentage / 100.0f));
 
   pwm_set_gpio_level(HWCONF_PIN_PWM_ESC, pulse);
 
