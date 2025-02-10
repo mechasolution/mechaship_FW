@@ -67,8 +67,6 @@ static void start_sequence(void) {
   }
 }
 
-#include "driver/actuator/actuator.h"
-
 void app_main(void) {
   power_set_main(true);
 
