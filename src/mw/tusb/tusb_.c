@@ -34,5 +34,5 @@ bool mw_tusb_init(void) {
       s_tusb_task_buff,
       &s_tusb_task_struct);
 
-  return true;
+  return tusb_task_hd != NULL;
 }

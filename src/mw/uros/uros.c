@@ -66,7 +66,7 @@ bool uros_init(void) {
       s_mw_uros_task_buff,
       &s_mw_uros_task_struct);
 
-  return true;
+  return mw_uros_task_queue_hd != NULL && mw_uros_task_hd != NULL;
 }
 
 void uros_set_domain_id(uint8_t domain_id) {

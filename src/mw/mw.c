@@ -4,9 +4,10 @@
 #include "uros/uros.h"
 
 bool mw_init(void) {
+  bool ret = true;
 
-  mw_tusb_init();
-  uros_init();
+  ret &= mw_tusb_init();
+  ret &= uros_init();
 
-  return true;
+  return ret;
 }
