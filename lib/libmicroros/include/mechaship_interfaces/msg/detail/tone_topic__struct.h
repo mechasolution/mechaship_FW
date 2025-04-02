@@ -2,6 +2,9 @@
 // with input from mechaship_interfaces:msg/ToneTopic.idl
 // generated code does not contain a copyright notice
 
+// IWYU pragma: private, include "mechaship_interfaces/msg/tone_topic.h"
+
+
 #ifndef MECHASHIP_INTERFACES__MSG__DETAIL__TONE_TOPIC__STRUCT_H_
 #define MECHASHIP_INTERFACES__MSG__DETAIL__TONE_TOPIC__STRUCT_H_
 
@@ -13,7 +16,6 @@ extern "C"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
 
 // Constants defined in the message
 

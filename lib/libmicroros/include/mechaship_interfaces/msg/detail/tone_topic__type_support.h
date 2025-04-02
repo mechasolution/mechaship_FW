@@ -2,6 +2,9 @@
 // with input from mechaship_interfaces:msg/ToneTopic.idl
 // generated code does not contain a copyright notice
 
+// IWYU pragma: private, include "mechaship_interfaces/msg/tone_topic.h"
+
+
 #ifndef MECHASHIP_INTERFACES__MSG__DETAIL__TONE_TOPIC__TYPE_SUPPORT_H_
 #define MECHASHIP_INTERFACES__MSG__DETAIL__TONE_TOPIC__TYPE_SUPPORT_H_
 
@@ -24,7 +27,7 @@ ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   mechaship_interfaces,
   msg,
   ToneTopic
-)();
+)(void);
 
 #ifdef __cplusplus
 }

@@ -2,6 +2,9 @@
 // with input from builtin_interfaces:msg/Duration.idl
 // generated code does not contain a copyright notice
 
+// IWYU pragma: private, include "builtin_interfaces/msg/duration.h"
+
+
 #ifndef BUILTIN_INTERFACES__MSG__DETAIL__DURATION__STRUCT_H_
 #define BUILTIN_INTERFACES__MSG__DETAIL__DURATION__STRUCT_H_
 
@@ -13,7 +16,6 @@ extern "C"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
 
 // Constants defined in the message
 
@@ -27,7 +29,7 @@ typedef struct builtin_interfaces__msg__Duration
 {
   /// Seconds component, range is valid over any possible int32 value.
   int32_t sec;
-  /// Nanoseconds component in the range of [0, 10e9).
+  /// Nanoseconds component in the range of [0, 1e9).
   uint32_t nanosec;
 } builtin_interfaces__msg__Duration;
 

@@ -2,6 +2,9 @@
 // with input from mechaship_interfaces:msg/RgbwLedColor.idl
 // generated code does not contain a copyright notice
 
+// IWYU pragma: private, include "mechaship_interfaces/msg/rgbw_led_color.h"
+
+
 #ifndef MECHASHIP_INTERFACES__MSG__DETAIL__RGBW_LED_COLOR__TYPE_SUPPORT_H_
 #define MECHASHIP_INTERFACES__MSG__DETAIL__RGBW_LED_COLOR__TYPE_SUPPORT_H_
 
@@ -24,7 +27,7 @@ ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   mechaship_interfaces,
   msg,
   RgbwLedColor
-)();
+)(void);
 
 #ifdef __cplusplus
 }

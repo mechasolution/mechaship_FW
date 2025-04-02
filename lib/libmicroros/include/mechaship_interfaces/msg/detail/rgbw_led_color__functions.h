@@ -2,6 +2,9 @@
 // with input from mechaship_interfaces:msg/RgbwLedColor.idl
 // generated code does not contain a copyright notice
 
+// IWYU pragma: private, include "mechaship_interfaces/msg/rgbw_led_color.h"
+
+
 #ifndef MECHASHIP_INTERFACES__MSG__DETAIL__RGBW_LED_COLOR__FUNCTIONS_H_
 #define MECHASHIP_INTERFACES__MSG__DETAIL__RGBW_LED_COLOR__FUNCTIONS_H_
 
@@ -13,6 +16,12 @@ extern "C"
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "rosidl_runtime_c/action_type_support_struct.h"
+#include "rosidl_runtime_c/message_type_support_struct.h"
+#include "rosidl_runtime_c/service_type_support_struct.h"
+#include "rosidl_runtime_c/type_description/type_description__struct.h"
+#include "rosidl_runtime_c/type_description/type_source__struct.h"
+#include "rosidl_runtime_c/type_hash.h"
 #include "rosidl_runtime_c/visibility_control.h"
 #include "mechaship_interfaces/msg/rosidl_generator_c__visibility_control.h"
 
@@ -53,7 +62,7 @@ mechaship_interfaces__msg__RgbwLedColor__fini(mechaship_interfaces__msg__RgbwLed
  */
 ROSIDL_GENERATOR_C_PUBLIC_mechaship_interfaces
 mechaship_interfaces__msg__RgbwLedColor *
-mechaship_interfaces__msg__RgbwLedColor__create();
+mechaship_interfaces__msg__RgbwLedColor__create(void);
 
 /// Destroy msg/RgbwLedColor message.
 /**
@@ -92,6 +101,30 @@ bool
 mechaship_interfaces__msg__RgbwLedColor__copy(
   const mechaship_interfaces__msg__RgbwLedColor * input,
   mechaship_interfaces__msg__RgbwLedColor * output);
+
+/// Retrieve pointer to the hash of the description of this type.
+ROSIDL_GENERATOR_C_PUBLIC_mechaship_interfaces
+const rosidl_type_hash_t *
+mechaship_interfaces__msg__RgbwLedColor__get_type_hash(
+  const rosidl_message_type_support_t * type_support);
+
+/// Retrieve pointer to the description of this type.
+ROSIDL_GENERATOR_C_PUBLIC_mechaship_interfaces
+const rosidl_runtime_c__type_description__TypeDescription *
+mechaship_interfaces__msg__RgbwLedColor__get_type_description(
+  const rosidl_message_type_support_t * type_support);
+
+/// Retrieve pointer to the single raw source text that defined this type.
+ROSIDL_GENERATOR_C_PUBLIC_mechaship_interfaces
+const rosidl_runtime_c__type_description__TypeSource *
+mechaship_interfaces__msg__RgbwLedColor__get_individual_type_description_source(
+  const rosidl_message_type_support_t * type_support);
+
+/// Retrieve pointer to the recursive raw sources that defined the description of this type.
+ROSIDL_GENERATOR_C_PUBLIC_mechaship_interfaces
+const rosidl_runtime_c__type_description__TypeSource__Sequence *
+mechaship_interfaces__msg__RgbwLedColor__get_type_description_sources(
+  const rosidl_message_type_support_t * type_support);
 
 /// Initialize array of msg/RgbwLedColor messages.
 /**
