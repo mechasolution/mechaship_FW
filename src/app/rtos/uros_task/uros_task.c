@@ -156,9 +156,6 @@ static void s_uros_task(void *arg) {
   uros_set_domain_id(domain_id);
 
   for (;;) {
-    // spin
-    uros_spin();
-
     // ROS_DOMAIN_ID 체크 및 갱신
     if (domain_id != switch8_get_sum()) {
       domain_id = switch8_get_sum();
