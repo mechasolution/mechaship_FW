@@ -95,7 +95,9 @@ bool uros_pub(uros_pub_data_flag_t data_flag, uros_pub_data_t *data) {
   memcpy(&buff.data, data, sizeof(uros_pub_data_t));
 
   if (xQueueSend(mw_uros_task_queue_hd, &buff, 0) != pdTRUE) {
-    log_debug(TAG, "Publish queue full!! message dropped!!");
+    log_warning(TAG, "Publish queue full!! message dropped!!");
+
+    return false;
   }
 
   return true;
