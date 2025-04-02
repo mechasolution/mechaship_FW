@@ -77,4 +77,13 @@
  */
 #define HWCONF_RGBW_LED_PIXEL_CNT 9
 
+/**
+ * @brief USB
+ *
+ * @note TODO:
+ *
+ */
+#define PICO_DEFAULT_PIO_USB_DP_PIN 20
+#define PICO_DEFAULT_PIO_USB_VBUSEN_PIN 22
+
 #endif /* SRC_HW_HWCONF */

@@ -100,6 +100,5 @@ void entity_set_domain_id(size_t domain_id) {
 }
 
 void entity_spin(void) {
-  rclc_executor_spin_some(&s_executor, RCL_MS_TO_NS(50));
-  return;
+  rclc_executor_spin_some(&s_executor, RCL_MS_TO_NS(10));
 }

@@ -32,7 +32,10 @@ target_link_libraries(mechaship_fw
   hardware_pio
   hardware_adc
 
+  tinyusb_device
+  tinyusb_board
   FreeRTOS-Kernel-Heap4
+
   microros
 )
 
@@ -42,7 +45,4 @@ set_target_properties(mechaship_fw PROPERTIES
 
 pico_generate_pio_header(mechaship_fw ${PIO_FILES_LIST})
 
-add_compile_definitions(PICO_UART_ENABLE_CRLF_SUPPORT=0)
-add_compile_definitions(PICO_STDIO_ENABLE_CRLF_SUPPORT=0)
-add_compile_definitions(PICO_STDIO_DEFAULT_CRLF=0)
 pico_add_extra_outputs(mechaship_fw)
