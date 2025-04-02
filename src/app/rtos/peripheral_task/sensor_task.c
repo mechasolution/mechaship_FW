@@ -69,7 +69,7 @@ static void s_sensor_task(void *arg) {
       vTaskSuspend(NULL); // stop this task
     }
 
-    vTaskDelay(1000);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
