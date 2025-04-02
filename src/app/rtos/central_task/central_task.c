@@ -163,7 +163,7 @@ bool central_task_init(void) {
       "central",
       CENTRAL_TASK_SIZE,
       NULL,
-      configMAX_PRIORITIES,
+      configEVENT_TASK_PRIORITIES,
       s_central_task_buff,
       &s_central_task_struct);
 
@@ -172,7 +172,7 @@ bool central_task_init(void) {
       "sled",
       SLED_TASK_SIZE,
       NULL,
-      configMAX_PRIORITIES,
+      configEVENT_TASK_PRIORITIES,
       s_sled_task_buff,
       &s_sled_task_struct);
 }

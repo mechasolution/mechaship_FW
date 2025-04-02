@@ -169,7 +169,7 @@ bool lcd_task_init(void) {
       "lcd",
       LCD_TASK_SIZE,
       NULL,
-      configMAX_PRIORITIES,
+      configIDLE_TASK_PRIORITIES + 1,
       s_lcd_task_buff,
       &s_lcd_task_struct);
 
@@ -178,7 +178,7 @@ bool lcd_task_init(void) {
       "lcd_init",
       LCD_FRAME_TASK_SIZE,
       NULL,
-      1,
+      configIDLE_TASK_PRIORITIES,
       s_lcd_frame_task_buff,
       &s_lcd_frame_task_struct);
 

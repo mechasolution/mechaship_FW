@@ -174,7 +174,7 @@ bool actuator_task_init(void) {
       "actuator",
       ACTUATOR_TASK_SIZE,
       NULL,
-      configMAX_PRIORITIES,
+      configEVENT_TASK_PRIORITIES,
       s_actuator_task_buff,
       &s_actuator_task_struct);
 
@@ -183,7 +183,7 @@ bool actuator_task_init(void) {
       "tone",
       TONE_TASK_SIZE,
       NULL,
-      configMAX_PRIORITIES,
+      configEVENT_TASK_PRIORITIES,
       s_tone_task_buff,
       &s_tone_task_struct);
 

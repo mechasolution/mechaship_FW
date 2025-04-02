@@ -197,7 +197,7 @@ bool uros_task_init(void) {
       "uros",
       UROS_TASK_SIZE,
       NULL,
-      5,
+      configEVENT_TASK_PRIORITIES,
       s_uros_task_buff,
       &s_uros_task_struct);
 

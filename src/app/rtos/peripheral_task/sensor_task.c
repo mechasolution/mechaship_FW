@@ -79,7 +79,7 @@ bool sensor_task_init(void) {
       "sensor",
       TASK_SIZE,
       NULL,
-      1,
+      configEVENT_TASK_PRIORITIES,
       sensor_task_buff,
       &sensor_task_struct);
 

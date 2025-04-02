@@ -46,6 +46,8 @@
 #define configUSE_TICK_HOOK 0
 #define configTICK_RATE_HZ ((TickType_t)1000)
 #define configMAX_PRIORITIES 32
+#define configEVENT_TASK_PRIORITIES 20
+#define configIDLE_TASK_PRIORITIES 5
 #define configMINIMAL_STACK_SIZE (configSTACK_DEPTH_TYPE)256
 #define configUSE_16_BIT_TICKS 0
 
