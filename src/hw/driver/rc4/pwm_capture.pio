@@ -1,0 +1,32 @@
+; code from https://github.com/GitJer/Some_RPI-Pico_stuff/blob/main/PwmIn/PwmIn.pio
+
+.program pwm_capture
+
+.wrap_target
+start:
+  mov y ~NULL
+  mov x ~NULL
+
+  wait 0 pin 0
+  wait 1 pin 0
+
+timer_hp:
+  jmp y-- test
+  jmp start
+
+test:
+  jmp pin timer_hp
+
+timer_lp:
+  jmp pin timerstop
+  jmp x-- timer_lp
+  jmp start
+
+timerstop:
+  mov ISR ~y
+  push noblock
+  mov ISR ~x
+  push noblock
+
+  irq wait 0 rel
+.wrap
