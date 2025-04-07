@@ -1,5 +1,3 @@
-#include <pico/stdio.h>
-
 #include <FreeRTOS.h>
 #include <task.h>
 
@@ -16,7 +14,6 @@ static void s_tusb_task(void *arg) {
   (void)arg;
 
   tusb_init();
-  stdio_init_all();
 
   for (;;) {
     tud_task();

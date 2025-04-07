@@ -47,5 +47,5 @@ add_subdirectory(src)
 pico_set_program_name(mechaship_fw "mechaship_fw")
 pico_set_program_version(mechaship_fw "0.1")
 
-pico_enable_stdio_usb(mechaship_fw 1)
+pico_enable_stdio_usb(mechaship_fw 0)
 pico_enable_stdio_uart(mechaship_fw 0)
