@@ -5,36 +5,36 @@
  * @brief Pins
  *
  */
-#define HWCONF_PIN_RES2_ALT 0              // Reserved alternative
-#define HWCONF_PIN_RES1_ALT 1              // Reserved alternative
-#define HWCONF_PIN_SBC_POWERED_SIG_IN 2    // DIN
-#define HWCONF_PIN_SBC_POWER_OFF_SIG_OUT 3 //     DOUT
-#define HWCONF_PIN_USB_POWER_SENSE 4       // DIN
-#define HWCONF_PIN_EMO_SWITCH 5            // DIN
-#define HWCONF_PIN_SERIAL1_TX 8            //         peripheral UART1
-#define HWCONF_PIN_SERIAL1_RX 9            //         peripheral UART1
-#define HWCONF_PIN_I2C1_SDA 10             //         peripheral I2C1
-#define HWCONF_PIN_I2C1_SCL 11             //         peripheral I2C1
-#define HWCONF_PIN_RGBW_LED 12             //         peripheral PIO (serialized data OUT)
-#define HWCONF_PIN_LED_USER_1 13           //     DOUT
-#define HWCONF_PIN_LED_USER_2 14           //     DOUT
-#define HWCONF_PIN_LED_FAULT 15            //     DOUT
-#define HWCONF_PIN_LED_STATUS 16           //     DOUT
-#define HWCONF_PIN_PIEZO 17                //         peripheral PWM0 B
-#define HWCONF_PIN_POWER_ACT_EN 18         //      DOUT
-#define HWCONF_PIN_POWER_SBC_EN 19         //      DOUT
-#define HWCONF_PIN_POWER_MAIN_EN 20        //      DOUT
-#define HWCONF_PIN_SWITCH_POWER 21         // DIN
-#define HWCONF_PIN_PWM_SERVO 22            //         peripheral PWM3 A
-#define HWCONF_PIN_PWM_ESC 23              //         peripheral PWM3 B
-#define HWCONF_PIN_RES1_PRI 24             //         peripheral PWM4 A
-#define HWCONF_PIN_RES2_PRI 25             //         peripheral PWM4 B
-#define HWCONF_PIN_SHIFT_LATCH 26          //      DOUT
-#define HWCONF_PIN_SHIFT_CLK 27            //      DOUT
-#define HWCONF_PIN_SHIFT_DATA 28           // DIN (serialized data IN)
-#define HWCONF_PIN_VOLTAGE_BATTERY 29      //         peripheral ADC3
-
-// #define HWCONF_PIN_PWM_ESC 24 //         peripheral PWM3 B
+#define HWCONF_PIN_RES2_ALT 0           // Reserved alternative
+#define HWCONF_PIN_RES1_ALT 1           // Reserved alternative
+#define HWCONF_PIN_SBC_POWERED_SIG_IN 2 // DIN
+#define HWCONF_PIN_RC_CH1 3             //         peripheral PIO1 SM0
+#define HWCONF_PIN_RC_CH2 4             //         peripheral PIO1 SM1
+#define HWCONF_PIN_RC_CH3 5             //         peripheral PIO1 SM2
+#define HWCONF_PIN_RC_CH4 6             //         peripheral PIO1 SM3
+#define HWCONF_PIN_EMO_SWITCH 7         // DIN
+#define HWCONF_PIN_SERIAL1_TX 8         //         peripheral UART1
+#define HWCONF_PIN_SERIAL1_RX 9         //         peripheral UART1
+#define HWCONF_PIN_I2C1_SDA 10          //         peripheral I2C1
+#define HWCONF_PIN_I2C1_SCL 11          //         peripheral I2C1
+#define HWCONF_PIN_RGBW_LED 12          //         peripheral PIO0 (serialized data OUT)
+#define HWCONF_PIN_LED_RC_MODE 13       //      DOUT
+#define HWCONF_PIN_LED_ROS_MODE 14      //      DOUT
+#define HWCONF_PIN_LED_FAULT 15         //      DOUT
+#define HWCONF_PIN_LED_STATUS 16        //      DOUT
+#define HWCONF_PIN_PIEZO 17             //         peripheral PWM0 B
+#define HWCONF_PIN_POWER_ACT_EN 18      //      DOUT
+#define HWCONF_PIN_POWER_SBC_EN 19      //      DOUT
+#define HWCONF_PIN_POWER_MAIN_EN 20     //      DOUT
+#define HWCONF_PIN_SWITCH_POWER 21      // DIN
+#define HWCONF_PIN_PWM_SERVO 22         //         peripheral PWM3 A
+#define HWCONF_PIN_PWM_ESC 23           //         peripheral PWM3 B
+#define HWCONF_PIN_RES1_PRI 24          //         peripheral PWM4 A
+#define HWCONF_PIN_RES2_PRI 25          //         peripheral PWM4 B
+#define HWCONF_PIN_SHIFT_LATCH 26       //      DOUT
+#define HWCONF_PIN_SHIFT_CLK 27         //      DOUT
+#define HWCONF_PIN_SHIFT_DATA 28        // DIN (serialized data IN)
+#define HWCONF_PIN_VOLTAGE_BATTERY 29   //         peripheral ADC3
 
 /**
  * @brief Peripherals
