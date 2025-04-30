@@ -60,11 +60,11 @@ static void s_actuator_task(void *arg) {
         break;
 
       case ACTUATOR_TASK_COMMAND_LED_1:
-        led_set_1(queue_data.data.led_1.value);
+        // led_set_1(queue_data.data.led_1.value); // FIXME: remove unused peripheral
         break;
 
       case ACTUATOR_TASK_COMMAND_LED_2:
-        led_set_2(queue_data.data.led_2.value);
+        // led_set_2(queue_data.data.led_2.value); // FIXME: remove unused peripheral
         break;
 
       case ACTUATOR_TASK_COMMAND_LED_S:

@@ -4,31 +4,46 @@
 
 bool led_init(void) {
   gpio_init(HWCONF_PIN_LED_STATUS);
-  gpio_init(HWCONF_PIN_LED_USER_1);
-  gpio_init(HWCONF_PIN_LED_USER_2);
+  gpio_init(HWCONF_PIN_LED_ROS_MODE);
+  gpio_init(HWCONF_PIN_LED_RC_MODE);
   gpio_init(HWCONF_PIN_LED_FAULT);
 
   gpio_set_dir(HWCONF_PIN_LED_STATUS, GPIO_OUT);
-  gpio_set_dir(HWCONF_PIN_LED_USER_1, GPIO_OUT);
-  gpio_set_dir(HWCONF_PIN_LED_USER_2, GPIO_OUT);
+  gpio_set_dir(HWCONF_PIN_LED_ROS_MODE, GPIO_OUT);
+  gpio_set_dir(HWCONF_PIN_LED_RC_MODE, GPIO_OUT);
   gpio_set_dir(HWCONF_PIN_LED_FAULT, GPIO_OUT);
 
   gpio_put(HWCONF_PIN_LED_STATUS, false);
-  gpio_put(HWCONF_PIN_LED_USER_1, false);
-  gpio_put(HWCONF_PIN_LED_USER_2, false);
+  gpio_put(HWCONF_PIN_LED_ROS_MODE, false);
+  gpio_put(HWCONF_PIN_LED_RC_MODE, false);
   gpio_put(HWCONF_PIN_LED_FAULT, false);
+}
+void led_test(bool st) {
+  if (st) {
+    gpio_put(HWCONF_PIN_LED_ROS_MODE, true);
+    gpio_put(HWCONF_PIN_LED_RC_MODE, true);
+    gpio_put(HWCONF_PIN_LED_STATUS, true);
+    gpio_put(HWCONF_PIN_LED_FAULT, true);
+  } else {
+    gpio_put(HWCONF_PIN_LED_ROS_MODE, false);
+    gpio_put(HWCONF_PIN_LED_RC_MODE, false);
+    gpio_put(HWCONF_PIN_LED_STATUS, false);
+    gpio_put(HWCONF_PIN_LED_FAULT, false);
+  }
 }
 
 void led_set_s(bool s) {
   gpio_put(HWCONF_PIN_LED_STATUS, s);
 }
 
-void led_set_1(bool s) {
-  gpio_put(HWCONF_PIN_LED_USER_1, s);
-}
-
-void led_set_2(bool s) {
-  gpio_put(HWCONF_PIN_LED_USER_2, s);
+void led_set_mode(bool is_ros_mode) {
+  if (is_ros_mode) {
+    gpio_put(HWCONF_PIN_LED_ROS_MODE, true);
+    gpio_put(HWCONF_PIN_LED_RC_MODE, false);
+  } else {
+    gpio_put(HWCONF_PIN_LED_ROS_MODE, false);
+    gpio_put(HWCONF_PIN_LED_RC_MODE, true);
+  }
 }
 
 void led_set_f(bool s) {
