@@ -5,6 +5,8 @@
  * @brief Pins
  *
  */
+#define HWCONF_PIN_RES2_ALT 0              // Reserved alternative
+#define HWCONF_PIN_RES1_ALT 1              // Reserved alternative
 #define HWCONF_PIN_SBC_POWERED_SIG_IN 2    // DIN
 #define HWCONF_PIN_SBC_POWER_OFF_SIG_OUT 3 //     DOUT
 #define HWCONF_PIN_USB_POWER_SENSE 4       // DIN
@@ -17,6 +19,7 @@
 #define HWCONF_PIN_LED_USER_1 13           //     DOUT
 #define HWCONF_PIN_LED_USER_2 14           //     DOUT
 #define HWCONF_PIN_LED_FAULT 15            //     DOUT
+#define HWCONF_PIN_LED_STATUS 16           //     DOUT
 #define HWCONF_PIN_PIEZO 17                //         peripheral PWM0 B
 #define HWCONF_PIN_POWER_ACT_EN 18         //      DOUT
 #define HWCONF_PIN_POWER_SBC_EN 19         //      DOUT
@@ -24,7 +27,8 @@
 #define HWCONF_PIN_SWITCH_POWER 21         // DIN
 #define HWCONF_PIN_PWM_SERVO 22            //         peripheral PWM3 A
 #define HWCONF_PIN_PWM_ESC 23              //         peripheral PWM3 B
-#define HWCONF_PIN_LED_STATUS 25           //         peripheral PWM4 B
+#define HWCONF_PIN_RES1_PRI 24             //         peripheral PWM4 A
+#define HWCONF_PIN_RES2_PRI 25             //         peripheral PWM4 B
 #define HWCONF_PIN_SHIFT_LATCH 26          //      DOUT
 #define HWCONF_PIN_SHIFT_CLK 27            //      DOUT
 #define HWCONF_PIN_SHIFT_DATA 28           // DIN (serialized data IN)
