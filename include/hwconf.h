@@ -85,11 +85,6 @@
 #define HWCONF_RC_CH4_DEFAULT_PULSE (1000)
 #define HWCONF_RC_CH4_CLICKED_PULSE (2000)
 
-#define HWCONF_PIN_RC_CH1 1 // TODO: rev 1.0 test pcb only (using SBC UART connector)
-#define HWCONF_PIN_RC_CH2 0
-#define HWCONF_PIN_RC_CH3 3
-#define HWCONF_PIN_RC_CH4 2
-
 /**
  * @brief USB
  *
