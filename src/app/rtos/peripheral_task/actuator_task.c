@@ -163,7 +163,10 @@ static void s_tone_task(void *arg) {
     if (xQueueReceive(tone_task_queue_hd, &queue_data, portMAX_DELAY) == pdTRUE) {
       tone_set(queue_data.hz);
       vTaskDelay(queue_data.duration_ms / portTICK_PERIOD_MS);
-      tone_reset();
+
+      if (uxQueueMessagesWaiting(tone_task_queue_hd) == 0) {
+        tone_reset();
+      }
     }
   }
 }
