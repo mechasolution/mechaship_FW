@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-#include "hardware/dma.h"
 #include "hardware/pio.h"
 
 #include "hal/time/time.h"
@@ -130,12 +129,12 @@ float rc4_get_throttle_percentage(void) {
 float rc4_get_key_degree(void) {
   uint32_t pulse = rc4_get_ch1_pulsewidth();
   if (pulse == 0) {
-    return 60.0f;
+    return 90.0f;
   }
 
   if (HWCONF_RC_KEY_MIDDLE - HWCONF_RC_KEY_PULSE_MARGIN <= pulse &&
       pulse <= HWCONF_RC_KEY_MIDDLE + HWCONF_RC_KEY_PULSE_MARGIN) {
-    return 60.0f;
+    return 90.0f;
   }
 
   if (pulse < HWCONF_RC_KEY_MIN_PULSE) {
@@ -148,13 +147,13 @@ float rc4_get_key_degree(void) {
   int32_t max = HWCONF_RC_KEY_MAX_PULSE;
   int32_t center = HWCONF_RC_KEY_MIDDLE;
 
-  float percentage = 60.0f;
+  float percentage = 90.0f;
   if (pulse >= center) {
     center += HWCONF_RC_KEY_PULSE_MARGIN;
-    percentage += (float)(pulse - center) / (max - center) * 60.0f;
+    percentage += (float)(pulse - center) / (max - center) * 90.0f;
   } else {
     center -= HWCONF_RC_KEY_PULSE_MARGIN;
-    percentage += -1.0f * (float)(center - pulse) / (center - min) * 60.0f;
+    percentage += -1.0f * (float)(center - pulse) / (center - min) * 90.0f;
   }
 
   return percentage;
