@@ -36,14 +36,12 @@ void led_set_s(bool s) {
   gpio_put(HWCONF_PIN_LED_STATUS, s);
 }
 
-void led_set_mode(bool is_ros_mode) {
-  if (is_ros_mode) {
-    gpio_put(HWCONF_PIN_LED_ROS_MODE, true);
-    gpio_put(HWCONF_PIN_LED_RC_MODE, false);
-  } else {
-    gpio_put(HWCONF_PIN_LED_ROS_MODE, false);
-    gpio_put(HWCONF_PIN_LED_RC_MODE, true);
-  }
+void led_set_rc_mode(bool s) {
+  gpio_put(HWCONF_PIN_LED_RC_MODE, s);
+}
+
+void led_set_ros_mode(bool s) {
+  gpio_put(HWCONF_PIN_LED_ROS_MODE, s);
 }
 
 void led_set_f(bool s) {

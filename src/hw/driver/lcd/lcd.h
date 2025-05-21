@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 bool lcd_init(void);
+bool lcd_reinit_device(void);
 
 void lcd_set_cursor(int line, int position);
 void lcd_set_char(char val);

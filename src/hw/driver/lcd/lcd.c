@@ -41,11 +41,7 @@ static void s_lcd_send_byte(uint8_t val, int mode) {
   s_lcd_toggle_enable(low);
 }
 
-bool lcd_init(void) {
-  i2c_init(i2c1, 100 * 1000);
-  gpio_set_function(HWCONF_PIN_I2C1_SDA, GPIO_FUNC_I2C);
-  gpio_set_function(HWCONF_PIN_I2C1_SCL, GPIO_FUNC_I2C);
-
+static void s_lcd_reset(void) {
   s_lcd_send_byte(0x03, LCD_COMMAND);
   s_lcd_send_byte(0x03, LCD_COMMAND);
   s_lcd_send_byte(0x03, LCD_COMMAND);
@@ -54,9 +50,20 @@ bool lcd_init(void) {
   s_lcd_send_byte(LCD_ENTRYMODESET | LCD_ENTRYLEFT, LCD_COMMAND);
   s_lcd_send_byte(LCD_FUNCTIONSET | LCD_2LINE, LCD_COMMAND);
   s_lcd_send_byte(LCD_DISPLAYCONTROL | LCD_DISPLAYON, LCD_COMMAND);
+}
 
-  lcd_clear();
-  lcd_next_frame();
+bool lcd_init(void) {
+  i2c_init(i2c1, 100 * 1000);
+  gpio_set_function(HWCONF_PIN_I2C1_SDA, GPIO_FUNC_I2C);
+  gpio_set_function(HWCONF_PIN_I2C1_SCL, GPIO_FUNC_I2C);
+
+  s_lcd_reset();
+
+  return true;
+}
+
+bool lcd_reinit_device(void) {
+  s_lcd_reset();
 
   return true;
 }
@@ -74,15 +81,6 @@ void s_lcd_set_cursor(int line, int position) {
 }
 
 void lcd_next_frame(void) {
-  s_lcd_send_byte(0x03, LCD_COMMAND);
-  s_lcd_send_byte(0x03, LCD_COMMAND);
-  s_lcd_send_byte(0x03, LCD_COMMAND);
-  s_lcd_send_byte(0x02, LCD_COMMAND);
-
-  s_lcd_send_byte(LCD_ENTRYMODESET | LCD_ENTRYLEFT, LCD_COMMAND);
-  s_lcd_send_byte(LCD_FUNCTIONSET | LCD_2LINE, LCD_COMMAND);
-  s_lcd_send_byte(LCD_DISPLAYCONTROL | LCD_DISPLAYON, LCD_COMMAND);
-
   s_lcd_set_cursor(0, 0);
 
   for (uint8_t i = 0; i < MAX_LINES; i++) {

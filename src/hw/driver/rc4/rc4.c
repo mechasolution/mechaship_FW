@@ -66,6 +66,8 @@ bool rc4_init(void) {
   s_sm_init(PIO_CHANNEL, 2, program_offset, HWCONF_PIN_RC_CH3);
   s_sm_init(PIO_CHANNEL, 3, program_offset, HWCONF_PIN_RC_CH4);
 
+  time_block_ms(500); // wait for sm to get first data
+
   return true;
 }
 
@@ -117,10 +119,10 @@ float rc4_get_throttle_percentage(void) {
   float percentage = 0.0f;
   if (pulse >= center) {
     center += HWCONF_RC_THROTTLE_PULSE_MARGIN;
-    percentage = (float)(pulse - center) / (max - center) * 100.0f;
+    percentage = -1.0f * (float)(pulse - center) / (max - center) * 100.0f;
   } else {
     center -= HWCONF_RC_THROTTLE_PULSE_MARGIN;
-    percentage = -1.0f * (float)(center - pulse) / (center - min) * 100.0f;
+    percentage = (float)(center - pulse) / (center - min) * 100.0f;
   }
 
   return percentage;
@@ -162,7 +164,7 @@ float rc4_get_key_degree(void) {
 rc4_slideswitch_data_t rc4_get_slideswitch(void) {
   uint32_t pulse = rc4_get_ch3_pulsewidth();
   if (pulse == 0) {
-    return RC4_SLIDESWITCH_MIDDLE;
+    return RC4_SLIDESWITCH_ERR;
   }
 
   if (HWCONF_RC_CH3_MIN_PULSE - 20 <= pulse && pulse <= HWCONF_RC_CH3_MIN_PULSE + 20) {

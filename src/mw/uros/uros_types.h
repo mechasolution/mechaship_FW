@@ -11,7 +11,6 @@ typedef enum {
 
   UROS_PUB_BATTERY_VOLTAGE,
   UROS_PUB_EMO_STATUS,
-  UROS_PUB_POWER_OFF_SIG,
 
   UROS_PUB_MAX,
 } uros_pub_data_flag_t;
@@ -24,10 +23,6 @@ typedef union {
   struct { // UROS_PUB_EMO_STATUS
     bool value;
   } emo_status;
-
-  struct { // UROS_PUB_POWER_OFF_SIG
-    uint8_t _;
-  } power_off_sig;
 } uros_pub_data_t;
 
 // -------------------------------------------------------
@@ -37,8 +32,6 @@ typedef enum {
 
   UROS_SUB_KEY,
   UROS_SUB_THROTTLE,
-  UROS_SUB_LED_USER_1,
-  UROS_SUB_LED_USER_2,
   UROS_SUB_TONE,
   UROS_SUB_RGBW_LED,
   UROS_SUB_IP_ADDR,
@@ -54,14 +47,6 @@ typedef union {
   struct { // UROS_SUB_THROTTLE
     float percentage;
   } throttle_percentage;
-
-  struct { // UROS_SUB_LED_USER_1
-    bool value;
-  } led_user_1;
-
-  struct { // UROS_SUB_LED_USER_2
-    bool value;
-  } led_user_2;
 
   struct { // UROS_SUB_TONE
     uint16_t hz;

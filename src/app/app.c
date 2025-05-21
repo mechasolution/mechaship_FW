@@ -18,20 +18,11 @@ bool app_init(void) {
   return ret;
 }
 
-static void check_voltage(void) {
-  if (battery_get_percentage() <= 0) {
-    lcd_set_string("Power off in -");
-    lcd_set_cursor(1, 0);
-    lcd_set_string("LOW POWER!!!");
-
-    tone_set(2000);
-    time_block_ms(3000);
-
-    power_set_main(false);
-  }
+static bool s_test_battery(void) {
+  return battery_get_percentage() > 0;
 }
 
-static void start_sequence(void) {
+static bool s_test_hw(void) {
   // TODO: Move all test functions to their respective drivers, like "led_test"
   led_test(true);
 
@@ -68,16 +59,39 @@ static void start_sequence(void) {
     led_set_s(false);
     time_block_ms(80);
   }
+
+  return true;
+}
+
+void app_start_sequence(void) {
+  power_set_main(true);
+
+  if (s_test_battery() == false) {
+    lcd_set_string("Power off in -");
+    lcd_set_cursor(1, 0);
+    lcd_set_string("LOW POWER!!!");
+
+    tone_set(2000);
+    time_block_ms(3000);
+
+    power_set_main(false); // stop MCU
+  }
+
+  if (s_test_hw() == false) {
+    lcd_set_string("Power off in -");
+    lcd_set_cursor(1, 0);
+    lcd_set_string("HW init failed!!!");
+
+    tone_set(2000);
+    time_block_ms(3000);
+
+    power_set_main(false); // stop MCU
+  }
+
+  power_set_sbc(true);
 }
 
 void app_main(void) {
-  power_set_main(true);
-
-  check_voltage();
-
-  power_set_sbc(true);
-
-  start_sequence();
 
   rtos_start();
 }

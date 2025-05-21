@@ -1,41 +1,16 @@
 #include <FreeRTOS.h>
 #include <task.h> // FreeRTOS
 
+#include "central_task/central_task.h"
+#include "peripheral_task/actuator_task.h"
+#include "peripheral_task/lcd_task.h"
+#include "peripheral_task/sled_task.h"
+
 #include "rtos.h"
 
 #include "driver/log/log.h"
 
 #define TAG "RTOS"
-
-extern bool sensor_task_init(void);
-
-extern bool central_task_init(void);
-extern bool central_task_queue_init(void);
-
-extern bool uros_task_init(void);
-extern bool uros_task_queue_init(void);
-
-extern bool actuator_task_init(void);
-extern bool actuator_task_queue_init(void);
-
-extern bool lcd_task_init(void);
-extern bool lcd_task_queue_init(void);
-
-static void s_queue_init(void) {
-  bool result;
-
-  result = central_task_queue_init();
-  configASSERT(result);
-
-  result = uros_task_queue_init();
-  configASSERT(result);
-
-  result = actuator_task_queue_init();
-  configASSERT(result);
-
-  result = lcd_task_queue_init();
-  configASSERT(result);
-}
 
 static void s_task_init(void) {
   bool result;
@@ -43,13 +18,10 @@ static void s_task_init(void) {
   result = central_task_init();
   configASSERT(result);
 
-  result = sensor_task_init();
-  configASSERT(result);
-
-  result = uros_task_init();
-  configASSERT(result);
-
   result = actuator_task_init();
+  configASSERT(result);
+
+  result = sled_task_init();
   configASSERT(result);
 
   result = lcd_task_init();
@@ -57,7 +29,6 @@ static void s_task_init(void) {
 }
 
 void rtos_init(void) {
-  s_queue_init();
   s_task_init();
 }
 

@@ -93,10 +93,6 @@ entity_destroy_failed:
 
 void entity_set_domain_id(size_t domain_id) {
   s_domain_id = domain_id;
-  if (agent_is_connected()) {
-    entity_destroy();
-    entity_create();
-  }
 }
 
 void entity_spin(void) {

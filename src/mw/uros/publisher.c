@@ -20,9 +20,6 @@ static std_msgs__msg__Float32 s_battery_voltage_msg;
 static rcl_publisher_t s_emo_status_publisher;
 static std_msgs__msg__Bool s_emo_status_msg;
 
-static rcl_publisher_t s_power_off_sig_publisher;
-static std_msgs__msg__Bool s_power_off_sig_msg;
-
 bool publisher_create(rcl_node_t *node) {
   RCCHECK_GOTO(
       TAG,
@@ -40,15 +37,6 @@ bool publisher_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
           "sensor/emo/status"),
-      publisher_create_failed);
-
-  RCCHECK_GOTO(
-      TAG,
-      rclc_publisher_init_default(
-          &s_power_off_sig_publisher,
-          node,
-          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
-          "system/power/off_sig"),
       publisher_create_failed);
 
   return true;
@@ -69,13 +57,6 @@ bool publisher_destroy(rcl_node_t *node) {
       TAG,
       rcl_publisher_fini(
           &s_emo_status_publisher,
-          node),
-      publisher_destroy_failed);
-
-  RCCHECK_GOTO(
-      TAG,
-      rcl_publisher_fini(
-          &s_power_off_sig_publisher,
           node),
       publisher_destroy_failed);
 
@@ -109,17 +90,6 @@ bool publisher_publish(uros_pub_data_flag_t data_flag, uros_pub_data_t *data) {
         rcl_publish(
             &s_emo_status_publisher,
             &s_emo_status_msg,
-            NULL),
-        publisher_publish_failed);
-    break;
-
-  case UROS_PUB_POWER_OFF_SIG:
-    s_power_off_sig_msg.data = true; // fix
-    RCCHECK_GOTO(
-        TAG,
-        rcl_publish(
-            &s_power_off_sig_publisher,
-            &s_power_off_sig_msg,
             NULL),
         publisher_publish_failed);
     break;

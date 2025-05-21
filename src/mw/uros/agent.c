@@ -17,24 +17,32 @@ typedef enum {
 
   AGENT_DISCONNECTED,
 } agent_state_t;
+static agent_state_t s_agent_state = AGENT_WAIT;
 
 bool agent_init(void) {
-  rmw_uros_set_custom_transport(
-      true,
-      NULL,
-      cdc0_transport_open,
-      cdc0_transport_close,
-      cdc0_transport_write,
-      cdc0_transport_read);
+  static bool is_transport_init = false;
+  if (is_transport_init == false) {
+    rmw_uros_set_custom_transport(
+        true,
+        NULL,
+        cdc0_transport_open,
+        cdc0_transport_close,
+        cdc0_transport_write,
+        cdc0_transport_read);
+    is_transport_init = true;
+  }
 
   return true;
+}
+
+void agent_reset(void) {
+  s_agent_state = AGENT_WAIT;
 }
 
 static bool s_ping_agent(void) {
   return RMW_RET_OK == rmw_uros_ping_agent(100, 1);
 }
 
-static agent_state_t s_agent_state = AGENT_WAIT;
 static void s_check_and_action(void) {
   switch (s_agent_state) {
   case AGENT_WAIT:

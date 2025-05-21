@@ -59,6 +59,7 @@
   } while (0)
 
 bool agent_init(void);
+void agent_reset(void);
 void agent_spin(void);
 bool agent_is_connected(void);
 

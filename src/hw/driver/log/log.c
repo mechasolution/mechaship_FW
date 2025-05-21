@@ -1,6 +1,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include <pico/critical_section.h>
+
 #include <hardware/gpio.h>
 #include <hardware/uart.h>
 
@@ -8,6 +10,7 @@
 
 #include "log.h"
 
+static critical_section_t s_uart_lock;
 static log_level_t s_log_level = LOG_NONE;
 
 bool log_init(void) {
@@ -15,6 +18,8 @@ bool log_init(void) {
 
   gpio_set_function(HWCONF_SERIAL_DEBUG_PIN_TX, UART_FUNCSEL_NUM(HWCONF_SERIAL_DEBUG_ID, HWCONF_SERIAL_DEBUG_PIN_TX));
   gpio_set_function(HWCONF_SERIAL_DEBUG_PIN_RX, UART_FUNCSEL_NUM(HWCONF_SERIAL_DEBUG_ID, HWCONF_SERIAL_DEBUG_PIN_RX));
+
+  critical_section_init(&s_uart_lock);
 
   return true;
 }
@@ -24,7 +29,11 @@ void log_set_level(log_level_t target) {
 }
 
 static inline void s_print_string(const char *s) {
+  critical_section_enter_blocking(&s_uart_lock);
+
   uart_puts(HWCONF_SERIAL_DEBUG_ID, s);
+
+  critical_section_exit(&s_uart_lock);
 }
 
 static void s_log(log_level_t level, const char *tag, const char *format, va_list args) {

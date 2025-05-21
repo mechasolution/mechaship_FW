@@ -5,7 +5,9 @@
 #include <stdint.h>
 
 typedef enum {
-  RC4_SLIDESWITCH_MIDDLE = 0x00,
+  RC4_SLIDESWITCH_ERR = 0x00,
+
+  RC4_SLIDESWITCH_MIDDLE,
   RC4_SLIDESWITCH_BACKWARD,
   RC4_SLIDESWITCH_FORWARD,
 } rc4_slideswitch_data_t;
@@ -24,8 +26,5 @@ float rc4_get_throttle_percentage(void);
 float rc4_get_key_degree(void);
 rc4_slideswitch_data_t rc4_get_slideswitch(void);
 bool rc4_get_switch(void);
-
-// bool rc4_set_ch3_callback(rc4_ch3_change_callback_t cb); // TODO:
-// bool rc4_set_ch4_callback(rc4_ch4_change_callback_t cb);
 
 #endif /* C3222403_9C7A_4DC7_98F9_C4A1E48BEAA1_H_ */

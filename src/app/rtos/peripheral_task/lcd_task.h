@@ -7,53 +7,26 @@
 #include <FreeRTOS.h>
 #include <queue.h>
 
-typedef struct {
-  enum {
-    LCD_TASK_COMMAND_NONE = 0x00,
+typedef enum {
+  LCD_TASK_CTL_MODE_NONE = 1,
+  LCD_TASK_CTL_MODE_RC,
+  LCD_TASK_CTL_MODE_ROS,
+} lcd_task_ctl_mode_t;
 
-    LCD_TASK_COMMAND_CONNECTION,
-    LCD_TASK_COMMAND_ACT_POWER,
-    LCD_TASK_COMMAND_IP_ADDR,
-    LCD_TASK_COMMAND_ACT_STATUS,
-    LCD_TASK_COMMAND_BAT_STATUS,
-    LCD_TASK_COMMAND_POWER_OFF,
+bool lcd_task_init(void);
 
-    LCD_TASK_COMMAND_FRAME,
-  } command;
-  union {
-    struct {
-      bool status;
-    } connection;
+bool lcd_task_update_ctl_mode(lcd_task_ctl_mode_t mode);
+bool lcd_task_update_actuator_power(bool status);
+bool lcd_task_update_ip_addr(uint32_t ipv4);
+bool lcd_task_update_throttle(int8_t percentage);
+bool lcd_task_update_key(uint8_t degree);
+bool lcd_task_update_battery(uint8_t percentage);
+bool lcd_task_update_power_off(uint8_t countdown, bool is_low_power);
 
-    struct {
-      bool status;
-    } act_power;
-
-    struct {
-      uint32_t ipv4;
-    } ip_addr;
-
-    struct {
-      uint8_t key;
-      int8_t throttle;
-    } act_status;
-
-    struct {
-      uint8_t value;
-    } bat_status;
-
-    struct {
-      uint8_t countdown;
-      bool is_low_power;
-    } power_off;
-
-    struct {
-      uint8_t _;
-    } frame;
-  } data;
-} lcd_task_queue_data_t;
-
-extern QueueHandle_t lcd_task_queue_hd;
-extern TaskHandle_t lcd_task_hd;
+void lcd_task_noti_usb_unplugged(void);
+void lcd_task_noti_usb_plugged(void);
+void lcd_task_noti_cdc_connected(void);
+void lcd_task_noti_uros_connected(void);
+void lcd_task_noti_uros_disconnected(void);
 
 #endif /* EE134825_9CDE_4665_A9A9_F257B86108DB_H_ */

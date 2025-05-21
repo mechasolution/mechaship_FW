@@ -6,7 +6,7 @@
 #include "tusb_.h"
 
 #define TUSB_TASK_SIZE (4096)
-TaskHandle_t tusb_task_hd = NULL;
+static TaskHandle_t s_tusb_task_hd = NULL;
 static StackType_t s_tusb_task_buff[TUSB_TASK_SIZE];
 static StaticTask_t s_tusb_task_struct;
 
@@ -17,12 +17,11 @@ static void s_tusb_task(void *arg) {
 
   for (;;) {
     tud_task();
-    tud_cdc_write_flush();
   }
 }
 
 bool mw_tusb_init(void) {
-  tusb_task_hd = xTaskCreateStatic(
+  s_tusb_task_hd = xTaskCreateStatic(
       s_tusb_task,
       "tusb",
       TUSB_TASK_SIZE,
@@ -31,5 +30,5 @@ bool mw_tusb_init(void) {
       s_tusb_task_buff,
       &s_tusb_task_struct);
 
-  return tusb_task_hd != NULL;
+  return s_tusb_task_hd != NULL;
 }

@@ -29,14 +29,6 @@ static rcl_subscription_t s_throttle_subscription;
 static uros_sub_data_flag_t s_throttle_msg_flag = UROS_SUB_THROTTLE;
 static std_msgs__msg__Float32 s_throttle_msg;
 
-static rcl_subscription_t s_led_user_1_subscription;
-static uros_sub_data_flag_t s_led_user_1_msg_flag = UROS_SUB_LED_USER_1;
-static std_msgs__msg__Bool s_led_user_1_msg;
-
-static rcl_subscription_t s_led_user_2_subscription;
-static uros_sub_data_flag_t s_led_user_2_msg_flag = UROS_SUB_LED_USER_2;
-static std_msgs__msg__Bool s_led_user_2_msg;
-
 static rcl_subscription_t s_tone_subscription;
 static uros_sub_data_flag_t s_tone_msg_flag = UROS_SUB_TONE;
 static mechaship_interfaces__msg__ToneTopic s_tone_msg;
@@ -63,14 +55,6 @@ static void s_subscriber_callback(const void *data, void *data_flag) {
 
   case UROS_SUB_THROTTLE:
     cb_data.throttle_percentage.percentage = ((uros_sub_data_t *)data)->throttle_percentage.percentage;
-    break;
-
-  case UROS_SUB_LED_USER_1:
-    cb_data.led_user_1.value = ((uros_sub_data_t *)data)->led_user_1.value;
-    break;
-
-  case UROS_SUB_LED_USER_2:
-    cb_data.led_user_2.value = ((uros_sub_data_t *)data)->led_user_2.value;
     break;
 
   case UROS_SUB_TONE:
@@ -129,22 +113,6 @@ bool subscriber_create(rcl_node_t *node) {
   RCCHECK_RETURN_FALSE(
       TAG,
       rclc_subscription_init_default(
-          &s_led_user_1_subscription,
-          node,
-          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
-          "actuator/led/user_1"));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rclc_subscription_init_default(
-          &s_led_user_2_subscription,
-          node,
-          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
-          "actuator/led/user_2"));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rclc_subscription_init_default(
           &s_tone_subscription,
           node,
           ROSIDL_GET_MSG_TYPE_SUPPORT(mechaship_interfaces, msg, ToneTopic),
@@ -180,18 +148,6 @@ bool subscriber_destroy(rcl_node_t *node) {
       TAG,
       rcl_subscription_fini(
           &s_throttle_subscription,
-          node));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_subscription_fini(
-          &s_led_user_1_subscription,
-          node));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_subscription_fini(
-          &s_led_user_2_subscription,
           node));
 
   RCCHECK_RETURN_FALSE(
@@ -234,26 +190,6 @@ bool subscriber_add_executor(rclc_executor_t *executor) {
           &s_throttle_msg,
           s_subscriber_callback,
           &s_throttle_msg_flag,
-          ON_NEW_DATA));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rclc_executor_add_subscription_with_context(
-          executor,
-          &s_led_user_1_subscription,
-          &s_led_user_1_msg,
-          s_subscriber_callback,
-          &s_led_user_1_msg_flag,
-          ON_NEW_DATA));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rclc_executor_add_subscription_with_context(
-          executor,
-          &s_led_user_2_subscription,
-          &s_led_user_2_msg,
-          s_subscriber_callback,
-          &s_led_user_2_msg_flag,
           ON_NEW_DATA));
 
   RCCHECK_RETURN_FALSE(

@@ -32,7 +32,7 @@ static uint8_t s_mw_uros_task_queue_buff[MW_UROS_TASK_QUEUE_LENGTH * MW_UROS_TAS
 static StaticQueue_t s_mw_uros_task_queue_struct;
 
 #define MW_UROS_TASK_SIZE 4096
-TaskHandle_t mw_uros_task_hd = NULL;
+static TaskHandle_t s_mw_uros_task_hd = NULL;
 static StackType_t s_mw_uros_task_buff[MW_UROS_TASK_SIZE];
 static StaticTask_t s_mw_uros_task_struct;
 static void s_uros_task(void *arg) {
@@ -45,28 +45,69 @@ static void s_uros_task(void *arg) {
   for (;;) {
     agent_spin();
     while (agent_is_connected() && xQueueReceive(mw_uros_task_queue_hd, &queue_buff, 0) == pdTRUE) {
-      publisher_publish(queue_buff.data_flag, &queue_buff.data);
+      bool ret = publisher_publish(queue_buff.data_flag, &queue_buff.data);
+      if (ret == false) {
+        if (uros_is_connected()) {
+          entity_destroy();
+        }
+        agent_reset();
+      }
     }
   }
 }
 
 bool uros_init(void) {
-  mw_uros_task_queue_hd = xQueueCreateStatic(
-      MW_UROS_TASK_QUEUE_LENGTH,
-      MW_UROS_TASK_QUEUE_ITEM_SIZE,
-      s_mw_uros_task_queue_buff,
-      &s_mw_uros_task_queue_struct);
+  uint8_t cnt = 0;
 
-  mw_uros_task_hd = xTaskCreateStatic(
-      s_uros_task,
-      "uros",
-      MW_UROS_TASK_SIZE,
-      NULL,
-      1,
-      s_mw_uros_task_buff,
-      &s_mw_uros_task_struct);
+  if (mw_uros_task_queue_hd == NULL) {
+    mw_uros_task_queue_hd = xQueueCreateStatic(
+        MW_UROS_TASK_QUEUE_LENGTH,
+        MW_UROS_TASK_QUEUE_ITEM_SIZE,
+        s_mw_uros_task_queue_buff,
+        &s_mw_uros_task_queue_struct);
+    cnt++;
+  }
 
-  return mw_uros_task_queue_hd != NULL && mw_uros_task_hd != NULL;
+  if (s_mw_uros_task_hd == NULL) {
+    s_mw_uros_task_hd = xTaskCreateStatic(
+        s_uros_task,
+        "uros",
+        MW_UROS_TASK_SIZE,
+        NULL,
+        configMAX_PRIORITIES - 2,
+        s_mw_uros_task_buff,
+        &s_mw_uros_task_struct);
+    cnt++;
+  }
+
+  return cnt == 2;
+}
+
+bool uros_deinit(void) {
+  uint8_t cnt = 0;
+
+  if (s_mw_uros_task_hd != NULL) {
+    vTaskDelete(s_mw_uros_task_hd);
+    s_mw_uros_task_hd = NULL;
+    cnt++;
+  }
+
+  if (mw_uros_task_queue_hd != NULL) {
+    vQueueDelete(mw_uros_task_queue_hd);
+    mw_uros_task_queue_hd = NULL;
+    cnt++;
+  }
+
+  if (cnt != 2) {
+    return false;
+  }
+
+  if (uros_is_connected()) {
+    entity_destroy();
+  }
+  agent_reset();
+
+  return true;
 }
 
 void uros_set_domain_id(uint8_t domain_id) {

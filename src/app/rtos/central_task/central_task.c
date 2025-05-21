@@ -1,81 +1,133 @@
 #include <FreeRTOS.h>
+#include <queue.h>
 #include <task.h>
 
 #include "rtos/peripheral_task/actuator_task.h"
 #include "rtos/peripheral_task/lcd_task.h"
 #include "rtos/uros_task/uros_task.h"
 
+#include "driver/battery/battery.h"
+#include "driver/led/led.h"
 #include "driver/log/log.h"
 #include "driver/power/power.h"
+#include "driver/rc4/rc4.h"
 
 #include "central_task.h"
+#include "rtos/peripheral_task/sled_task.h"
+#include "rtos/rc_task/rc_task.h"
+#include "rtos/uros_task/uros_task.h"
+
+#include "sbc/sbc.h"
 
 #define TAG "central"
 
-#define CENTRAL_TASK_SIZE configMINIMAL_STACK_SIZE
-TaskHandle_t central_task_hd = NULL;
-static StackType_t s_central_task_buff[CENTRAL_TASK_SIZE];
-static StaticTask_t s_central_task_struct;
+typedef struct {
+  enum {
+    CENTRAL_TASK_COMMAND_NONE = 0x00,
 
-#define CENTRAL_TASK_QUEUE_LENGTH 10
+    CENTRAL_TASK_COMMAND_IP,
+    CENTRAL_TASK_COMMAND_SBC_CONNECTION,
+  } command;
+  union {
+    struct { // CENTRAL_TASK_COMMAND_IP
+      uint32_t ipv4;
+    } ip;
+
+    struct { // CENTRAL_TASK_COMMAND_SBC_CONNECTION
+      bool status;
+    } sbc_connection;
+  } data;
+} central_task_queue_data_t;
+#define CENTRAL_TASK_QUEUE_LENGTH 4
 #define CENTRAL_TASK_QUEUE_ITEM_SIZE sizeof(central_task_queue_data_t)
-QueueHandle_t central_task_queue_hd = NULL;
+static QueueHandle_t s_central_task_queue_hd;
 static uint8_t s_central_task_queue_buff[CENTRAL_TASK_QUEUE_LENGTH * CENTRAL_TASK_QUEUE_ITEM_SIZE];
 static StaticQueue_t s_central_task_queue_struct;
 
-// internal
-#define SLED_TASK_SIZE configMINIMAL_STACK_SIZE
-static StackType_t s_sled_task_buff[SLED_TASK_SIZE];
-static StaticTask_t s_sled_task_struct;
+#define CENTRAL_TASK_SIZE (1024)
+static TaskHandle_t s_central_task_hd = NULL;
+static StackType_t s_central_task_buff[CENTRAL_TASK_SIZE];
+static StaticTask_t s_central_task_struct;
 
-typedef struct {
-  enum {
-    SLED_PATTERN_NONE = 0,
+static void s_ip_changed_melody(void) {
+  for (uint8_t i = 0; i < 3; i++) {
+    actuator_task_set_tone(739, 100);
+    actuator_task_set_tone(0, 20);
+  }
+  actuator_task_set_tone(0, 500);
+}
 
-    SLED_PATTERN_UROS_DISCONNECTED,
-    SLED_PATTERN_TURNING_OFF,
+static void s_sbc_ip_change_cb(uint32_t ipv4) {
+  central_task_queue_data_t data;
+  data.command = CENTRAL_TASK_COMMAND_IP;
+  data.data.ip.ipv4 = ipv4;
+  bool ret = xQueueSend(s_central_task_queue_hd, &data, 0);
 
-    SLED_PATTERN_MAX,
-  } pattern;
-} sled_task_queue_data_t;
-#define SLED_TASK_QUEUE_LENGTH 5
-#define SLED_TASK_QUEUE_ITEM_SIZE sizeof(sled_task_queue_data_t)
-static QueueHandle_t s_sled_task_queue_hd = NULL;
-static uint8_t s_sled_task_queue_buff[SLED_TASK_QUEUE_LENGTH * SLED_TASK_QUEUE_ITEM_SIZE];
-static StaticQueue_t s_sled_task_queue_struct;
+  if (ret == false) {
+    log_warning(TAG, "Publish queue full!! message dropped!!");
+  }
+}
+
+static void s_usb_disconnected_melody(void) {
+  actuator_task_set_tone(739, 80);
+  actuator_task_set_tone(0, 150);
+  actuator_task_set_tone(523, 80);
+  actuator_task_set_tone(0, 500);
+}
+
+static void s_usb_connected_melody(void) {
+  actuator_task_set_tone(523, 80);
+  actuator_task_set_tone(0, 150);
+  actuator_task_set_tone(739, 80);
+  actuator_task_set_tone(0, 500);
+}
+
+static void s_sbc_connection_change_cb(mw_sbc_connection_status_t status) {
+  static bool temp = false;
+
+  switch (status) {
+  case MW_SBC_CONNECTION_NONE:
+    lcd_task_noti_usb_unplugged();
+    s_usb_disconnected_melody();
+    temp = false;
+    break;
+
+  case MW_SBC_CONNECTION_USB:
+    if (temp == false) {
+      temp = true;
+      s_usb_connected_melody();
+    }
+    lcd_task_noti_usb_plugged();
+    break;
+
+  case MW_SBC_CONNECTION_CDC:
+    if (temp == false) {
+      temp = true;
+      s_usb_connected_melody();
+    }
+    lcd_task_noti_cdc_connected();
+    break;
+
+  default:
+    break;
+  }
+}
 
 static void s_power_off(bool is_low_power) {
   log_warning(TAG, "Power off sequence start");
 
-  actuator_task_queue_data_t actuator_queue_data = {0};
-  lcd_task_queue_data_t lcd_queue_data = {0};
-  uros_task_pub_queue_data_t uros_pub_queue_data = {0};
-  sled_task_queue_data_t sled_queue_data = {0};
+  led_set_rc_mode(false);
+  led_set_ros_mode(false);
 
-  power_set_act(false);
+  sled_task_set_pattern(SLED_TASK_PATTERN_BLINK_FAST);
+  actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
+  actuator_task_set_tone(2000, 3000);
 
-  actuator_queue_data.command = ACTUATOR_TASK_COMMAND_TONE;
-  actuator_queue_data.data.tone.duration_ms = 3000;
-  actuator_queue_data.data.tone.hz = 2000;
-  xQueueSend(actuator_task_queue_hd, &actuator_queue_data, portMAX_DELAY);
-
-  sled_queue_data.pattern = SLED_PATTERN_TURNING_OFF;
-  xQueueSend(s_sled_task_queue_hd, &sled_queue_data, portMAX_DELAY);
-
-  uros_pub_queue_data.topic = UROS_TASK_PUB_POWER_OFF;
-  xQueueSend(uros_task_pub_queue_hd, &uros_pub_queue_data, portMAX_DELAY);
-
-  vTaskDelay(1000 / portTICK_PERIOD_MS); // wait until uros pub done
-
-  vTaskSuspend(uros_task_hd); // stop uros task
+  mw_sbc_report_power_off();
 
   for (int i = 60; i >= 0; i--) {
     log_warning(TAG, "Power down in %d seconds", i);
-
-    lcd_queue_data.command = LCD_TASK_COMMAND_POWER_OFF;
-    lcd_queue_data.data.power_off.countdown = i;
-    lcd_queue_data.data.power_off.is_low_power = is_low_power;
-    xQueueSend(lcd_task_queue_hd, &lcd_queue_data, 0);
+    lcd_task_update_power_off(i, is_low_power);
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
@@ -84,109 +136,180 @@ static void s_power_off(bool is_low_power) {
   power_set_main(false);
 }
 
-static void s_central_task(void *arg) {
-  central_task_queue_data_t queue_data = {0};
-  lcd_task_queue_data_t lcd_task_queue_data = {0};
-  sled_task_queue_data_t sled_task_queue_data = {0};
+typedef enum {
+  MODE_NO_RC_MODULE = RC4_SLIDESWITCH_ERR,
 
-  for (;;) {
-    xQueueReceive(central_task_queue_hd, &queue_data, portMAX_DELAY);
-    switch (queue_data.event_type) {
-    case CENTRAL_TASK_EVENT_POWER_OFF:
-      s_power_off(false);
-      break;
+  MODE_NONE = RC4_SLIDESWITCH_MIDDLE,
+  MODE_RC = RC4_SLIDESWITCH_BACKWARD,
+  MODE_ROS = RC4_SLIDESWITCH_FORWARD,
+} mode_t;
 
-    case CENTRAL_TASK_EVENT_UROS_CONNECTION:
-      lcd_task_queue_data.command = LCD_TASK_COMMAND_CONNECTION;
-      lcd_task_queue_data.data.connection.status = queue_data.data.uros_connection.status;
-      xQueueSend(lcd_task_queue_hd, &lcd_task_queue_data, 0);
+static void s_mode_none_melody(void) {
+  actuator_task_set_tone(739, 150);
+  actuator_task_set_tone(622, 150);
+  actuator_task_set_tone(523, 150);
+  actuator_task_set_tone(0, 500);
+}
 
-      sled_task_queue_data.pattern = queue_data.data.uros_connection.status ? SLED_PATTERN_NONE : SLED_PATTERN_UROS_DISCONNECTED;
-      xQueueSend(s_sled_task_queue_hd, &sled_task_queue_data, 0);
+static void s_update_mode(mode_t curr_mode) {
+  switch (curr_mode) {
+  case MODE_RC:
+    log_debug(TAG, "RC MODE");
+    led_set_rc_mode(true);
+    led_set_ros_mode(false);
+    lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_RC);
 
-      if (queue_data.data.uros_connection.status == false) {
-        actuator_task_queue_data_t temp;
-        temp.command = ACTUATOR_TASK_COMMAND_POWER;
-        temp.data.power.power_target = false;
-        xQueueSend(actuator_task_queue_hd, &temp, 0);
-      }
-      break;
+    uros_task_deinit();
+    rc_task_init();
+    break;
 
-    case CENTRAL_TASK_EVENT_LOW_POWER:
-      s_power_off(true);
-      break;
+  case MODE_ROS:
+    log_debug(TAG, "ROS MODE");
 
-    case CENTRAL_TASK_EVENT_NONE:
-    default:
-      break;
-    }
+    led_set_rc_mode(false);
+    led_set_ros_mode(true);
+    lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_ROS);
+
+    rc_task_deinit();
+    uros_task_init();
+    break;
+
+  case MODE_NONE:
+  default:
+    log_debug(TAG, "IDLE MODE");
+    sled_task_set_pattern(SLED_TASK_PATTERN_BLINK_SLOW);
+    s_mode_none_melody();
+
+    led_set_rc_mode(false);
+    led_set_ros_mode(false);
+    lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_NONE);
+
+    rc_task_deinit();
+    uros_task_deinit();
+    break;
   }
 }
 
-// Status LED 패턴 구현
-/*
-  -____-____ -> SBC 부팅중
-  --__--__-- -> micro-ROS 연결 대기
-  ---------- -> 일반 상태
-  -_-_-_-_-_ -> 종료중
-*/
-static void s_sled_task(void *arg) {
-  actuator_task_queue_data_t actuator_task_queue_data;
-  sled_task_queue_data_t queue_data;
-  uint8_t pattern_idx = 0;
-  bool pattern[SLED_PATTERN_MAX][4] = {
-      {true, true, true, true},   // SLED_PATTERN_NONE
-      {true, true, false, false}, // SLED_PATTERN_UROS_DISCONNECTED
-      {true, false, true, false}, // SLED_PATTERN_TURNING_OFF
-  };
-
-  queue_data.pattern = SLED_PATTERN_UROS_DISCONNECTED;
-  actuator_task_queue_data.command = ACTUATOR_TASK_COMMAND_LED_S;
-
-  for (;;) {
-    if (xQueueReceive(s_sled_task_queue_hd, &queue_data, 500 / portTICK_PERIOD_MS) == pdTRUE) {
-      if (queue_data.pattern >= SLED_PATTERN_MAX || queue_data.pattern <= SLED_PATTERN_NONE) {
-        queue_data.pattern = SLED_PATTERN_NONE;
-      }
+static void s_process_event(central_task_queue_data_t *queue_data, mode_t current_mode) {
+  switch (queue_data->command) {
+  case CENTRAL_TASK_COMMAND_IP: // ip changed
+    if (queue_data->data.ip.ipv4 != 0 && current_mode == MODE_ROS) {
+      s_ip_changed_melody();
+      uros_task_noti_ip_changed();
     }
 
-    actuator_task_queue_data.data.led_s.value = pattern[queue_data.pattern][pattern_idx];
-    xQueueSend(actuator_task_queue_hd, &actuator_task_queue_data, 0);
+    lcd_task_update_ip_addr(queue_data->data.ip.ipv4);
+    break;
 
-    pattern_idx = pattern_idx >= 3 ? 0 : pattern_idx + 1;
+  case CENTRAL_TASK_COMMAND_NONE:
+  default:
+    break;
+  }
+}
+
+static mode_t s_process_mode_change(void) {
+  static mode_t current_mode = MODE_NONE;
+  static mode_t mode_temp = MODE_NONE;
+  static TickType_t last_mode_tick = 0;
+
+  mode_t mode_target = rc4_get_slideswitch();
+  if (mode_target == MODE_NO_RC_MODULE) {
+    if (current_mode != MODE_ROS) {
+      s_update_mode(MODE_ROS);
+      current_mode = MODE_ROS;
+    }
+  } else {
+    if (mode_target != current_mode) {
+      if (mode_target != mode_temp) {
+        mode_temp = mode_target;
+        last_mode_tick = xTaskGetTickCount();
+      } else if (xTaskGetTickCount() - last_mode_tick >= pdMS_TO_TICKS(300)) {
+        s_update_mode(mode_temp);
+        current_mode = mode_temp;
+      }
+    }
+  }
+
+  return current_mode;
+}
+
+static void s_process_switch(void) {
+  static TickType_t last_switch_tick = 0;
+  static bool last_switch = false;
+
+  bool current_switch = power_get_button();
+  if (last_switch != current_switch) {
+    last_switch_tick = xTaskGetTickCount();
+    last_switch = current_switch;
+  }
+  if (current_switch == true && xTaskGetTickCount() - last_switch_tick >= pdMS_TO_TICKS(5000)) {
+    s_power_off(false);
+  }
+}
+
+static void s_process_low_freq_task(void) {
+  // watch battery
+  float voltage = battery_get_voltage();
+  float percentage = battery_get_percentage();
+  // TODO: 저전압 경고, 종료
+
+  if (percentage <= 0) {
+    s_power_off(true);
+  }
+
+  // update lcd
+  lcd_task_update_battery((uint8_t)percentage);
+
+  // update sbc
+  mw_sbc_report_battery_info(voltage, percentage);
+}
+
+static void s_central_task(void *arg) {
+  central_task_queue_data_t queue_data = {0};
+  TickType_t last_low_freq_work_tick = 0;
+
+  sled_task_set_pattern(SLED_TASK_PATTERN_BLINK_SLOW);
+  lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_NONE);
+  mw_sbc_set_ipv4_change_callback(s_sbc_ip_change_cb);
+  mw_sbc_set_connection_change_callback(s_sbc_connection_change_cb);
+
+  vTaskDelay(pdMS_TO_TICKS(100));
+
+  for (;;) {
+    // update mode
+    mode_t current_mode = s_process_mode_change();
+
+    // handle ip change event
+    if (xQueueReceive(s_central_task_queue_hd, &queue_data, pdMS_TO_TICKS(50)) == pdTRUE) {
+      s_process_event(&queue_data, current_mode);
+    }
+
+    // watch switch
+    s_process_switch();
+
+    // low freq work
+    if (xTaskGetTickCount() - last_low_freq_work_tick >= pdMS_TO_TICKS(1000)) {
+      last_low_freq_work_tick = xTaskGetTickCount();
+      s_process_low_freq_task();
+    }
   }
 }
 
 bool central_task_init(void) {
-  central_task_hd = xTaskCreateStatic(
-      s_central_task,
-      "central",
-      CENTRAL_TASK_SIZE,
-      NULL,
-      configEVENT_TASK_PRIORITIES,
-      s_central_task_buff,
-      &s_central_task_struct);
-
-  xTaskCreateStatic(
-      s_sled_task,
-      "sled",
-      SLED_TASK_SIZE,
-      NULL,
-      configEVENT_TASK_PRIORITIES,
-      s_sled_task_buff,
-      &s_sled_task_struct);
-}
-
-bool central_task_queue_init(void) {
-  central_task_queue_hd = xQueueCreateStatic(
+  s_central_task_queue_hd = xQueueCreateStatic(
       CENTRAL_TASK_QUEUE_LENGTH,
       CENTRAL_TASK_QUEUE_ITEM_SIZE,
       s_central_task_queue_buff,
       &s_central_task_queue_struct);
 
-  s_sled_task_queue_hd = xQueueCreateStatic(
-      SLED_TASK_QUEUE_LENGTH,
-      SLED_TASK_QUEUE_ITEM_SIZE,
-      s_sled_task_queue_buff,
-      &s_sled_task_queue_struct);
+  s_central_task_hd = xTaskCreateStatic(
+      s_central_task,
+      "central",
+      CENTRAL_TASK_SIZE,
+      NULL,
+      configIDLE_TASK_PRIORITIES,
+      s_central_task_buff,
+      &s_central_task_struct);
+
+  return true;
 }

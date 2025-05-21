@@ -7,6 +7,7 @@
 #include "uros_types.h"
 
 bool uros_init(void);
+bool uros_deinit(void);
 void uros_set_domain_id(uint8_t domain_id);
 
 void uros_spin(void);

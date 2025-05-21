@@ -129,11 +129,11 @@ to exclude the API function. */
 /* A header file that defines trace macro can be included here. */
 
 /* SMP Related config. */
-// #define portSUPPORT_SMP 1
-// #define configNUMBER_OF_CORES 2
-// #define configTICK_CORE 0
-// #define configRUN_MULTIPLE_PRIORITIES 0
-// #define configUSE_CORE_AFFINITY 1
-// #define configUSE_PASSIVE_IDLE_HOOK 0
+#define portSUPPORT_SMP 1
+#define configNUMBER_OF_CORES 2
+#define configTICK_CORE 0
+#define configRUN_MULTIPLE_PRIORITIES 0
+#define configUSE_CORE_AFFINITY 1
+#define configUSE_PASSIVE_IDLE_HOOK 0
 
 #endif /* FREERTOS_CONFIG_H */

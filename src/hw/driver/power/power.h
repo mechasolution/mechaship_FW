@@ -21,7 +21,6 @@ bool power_get_sbc(void);
 void power_set_act(bool s);
 bool power_get_act(void);
 
-power_button_status_t *power_get_button_status(power_button_status_t *data);
 bool power_get_button(void);
 
 #endif /* D25E1608_C42D_498F_A94F_3A4061B07FE8_H_ */
