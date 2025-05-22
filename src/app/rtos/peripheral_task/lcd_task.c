@@ -120,7 +120,7 @@ static void s_event_inject_task(void *arg) {
     }
 
     xQueueSend(s_lcd_task_queue_hd, &data, 0);
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(200));
   }
 }
 
