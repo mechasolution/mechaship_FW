@@ -23,7 +23,7 @@ static float s_key_min = 0;
 static float s_key_max = 180;
 
 static uint16_t s_thruster_pulse_0_percentage = 1500;   // Thruster 중지할 때 펄스
-static uint16_t s_thruster_pulse_100_percentage = 2000; // 최대 속도일 때 펄스
+static uint16_t s_thruster_pulse_100_percentage = 1900; // 최대 속도일 때 펄스
 static uint16_t s_thruster_pulse_now = 0;
 
 bool actuator_init(void) {

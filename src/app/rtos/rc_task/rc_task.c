@@ -82,7 +82,7 @@ static void s_rc_task(void *arg) {
   actuator_task_set_tone(523, 150);
   actuator_task_set_tone(622, 150);
   actuator_task_set_tone(739, 150);
-  actuator_task_set_power(true, 0, 180, 500, 2500, 1500, 2000);
+  actuator_task_set_power(true, 0, 180, 500, 2500, 1500, 1900);
   actuator_task_set_rgbwled(0, 0, 0, 0);
 
   for (;;) {

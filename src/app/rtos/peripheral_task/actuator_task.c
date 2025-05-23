@@ -128,7 +128,7 @@ static void s_actuator_task(void *arg) {
             queue_data.data.power.key_pulse_0_degree = 500;
             queue_data.data.power.key_pulse_180_degree = 2500;
             queue_data.data.power.thruster_pulse_0_percentage = 1500;
-            queue_data.data.power.thruster_pulse_100_percentage = 2000;
+            queue_data.data.power.thruster_pulse_100_percentage = 1900;
           }
 
           actuator_set_key_info(queue_data.data.power.key_pulse_0_degree,
