@@ -106,8 +106,8 @@ static TimerHandle_t s_info_screen_toggle_timer_hd = NULL;
 static StaticTimer_t s_info_screen_toggle_timer_buff;
 
 static void s_frame_generation_timer_callback(TimerHandle_t timer_hd) {
-  lcd_task_queue_data_t data;
   static TickType_t last_force_reinit_tick = 0;
+  lcd_task_queue_data_t data;
 
   if (xTaskGetTickCount() - last_force_reinit_tick >= pdMS_TO_TICKS(10000)) {
     last_force_reinit_tick = xTaskGetTickCount();
