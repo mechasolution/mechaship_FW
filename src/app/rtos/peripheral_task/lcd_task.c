@@ -3,6 +3,7 @@
 #include <FreeRTOS.h>
 #include <queue.h>
 #include <task.h>
+#include <timers.h>
 
 #include "driver/lcd/lcd.h"
 #include "driver/log/log.h"
@@ -98,30 +99,31 @@ static TaskHandle_t s_lcd_task_hd = NULL;
 static StackType_t s_lcd_task_buff[LCD_TASK_SIZE];
 static StaticTask_t s_lcd_task_struct;
 
-#define EVENT_INJECT_TASK_SIZE configMINIMAL_STACK_SIZE
-static TaskHandle_t s_event_inject_task_hd = NULL;
-static StackType_t s_event_inject_task_buff[EVENT_INJECT_TASK_SIZE];
-static StaticTask_t s_event_inject_task_struct;
+static TimerHandle_t s_frame_generation_timer_hd = NULL;
+static StaticTimer_t s_frame_generation_timer_buff;
 
-static void s_event_inject_task(void *arg) {
-  lcd_task_queue_data_t data = {0};
-  TickType_t last_force_reinit_tick = 0;
-  TickType_t last_change_main_info_tick = 0;
+static TimerHandle_t s_info_screen_toggle_timer_hd = NULL;
+static StaticTimer_t s_info_screen_toggle_timer_buff;
 
-  for (;;) {
-    if (xTaskGetTickCount() - last_force_reinit_tick >= pdMS_TO_TICKS(10000)) {
-      last_force_reinit_tick = xTaskGetTickCount();
-      data.command = LCD_TASK_COMMAND_FORCE_REINIT;
-    } else if (xTaskGetTickCount() - last_change_main_info_tick >= pdMS_TO_TICKS(4000)) {
-      last_change_main_info_tick = xTaskGetTickCount();
-      data.command = LCD_TASK_COMMAND_CHANGE_MAIN_INFO;
-    } else {
-      data.command = LCD_TASK_COMMAND_FRAME;
-    }
+static void s_frame_generation_timer_callback(TimerHandle_t timer_hd) {
+  lcd_task_queue_data_t data;
+  static TickType_t last_force_reinit_tick = 0;
 
-    xQueueSend(s_lcd_task_queue_hd, &data, 0);
-    vTaskDelay(pdMS_TO_TICKS(200));
+  if (xTaskGetTickCount() - last_force_reinit_tick >= pdMS_TO_TICKS(10000)) {
+    last_force_reinit_tick = xTaskGetTickCount();
+    data.command = LCD_TASK_COMMAND_FORCE_REINIT;
+  } else {
+    data.command = LCD_TASK_COMMAND_FRAME;
   }
+
+  xQueueSend(s_lcd_task_queue_hd, &data, 0);
+}
+
+static void s_info_screen_toggle_timer_callback(TimerHandle_t timer_hd) {
+  lcd_task_queue_data_t data;
+
+  data.command = LCD_TASK_COMMAND_CHANGE_MAIN_INFO;
+  xQueueSend(s_lcd_task_queue_hd, &data, 0);
 }
 
 static void s_lcd_task(void *arg) {
@@ -137,6 +139,9 @@ static void s_lcd_task(void *arg) {
   lcd_set_string("Disconnected    ");
   lcd_set_cursor(1, 0);
   lcd_set_string("ACT OFF     B   ");
+
+  xTimerStart(s_frame_generation_timer_hd, 0);
+  xTimerStart(s_info_screen_toggle_timer_hd, 0);
 
   for (;;) {
     if (xQueueReceive(s_lcd_task_queue_hd, &lcd_queue_data, portMAX_DELAY) == pdTRUE) {
@@ -333,14 +338,21 @@ bool lcd_task_init(void) {
       s_lcd_task_buff,
       &s_lcd_task_struct);
 
-  s_event_inject_task_hd = xTaskCreateStatic(
-      s_event_inject_task,
-      "lcd_init",
-      EVENT_INJECT_TASK_SIZE,
-      NULL,
-      configIDLE_TASK_PRIORITIES,
-      s_event_inject_task_buff,
-      &s_event_inject_task_struct);
+  s_frame_generation_timer_hd = xTimerCreateStatic(
+      "frame_generation_timer",
+      pdMS_TO_TICKS(200),
+      pdTRUE,
+      (void *)0,
+      s_frame_generation_timer_callback,
+      &s_frame_generation_timer_buff);
+
+  s_info_screen_toggle_timer_hd = xTimerCreateStatic(
+      "info_screen_toggle_timer",
+      pdMS_TO_TICKS(2000),
+      pdTRUE,
+      (void *)0,
+      s_info_screen_toggle_timer_callback,
+      &s_info_screen_toggle_timer_buff);
 
   return true;
 }
