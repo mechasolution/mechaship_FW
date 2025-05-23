@@ -34,7 +34,8 @@ target_link_libraries(mechaship_fw
 
   tinyusb_device
   tinyusb_board
-  FreeRTOS-Kernel-Heap4
+
+  FreeRTOS-Kernel
 
   microros
 )
