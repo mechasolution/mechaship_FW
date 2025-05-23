@@ -89,6 +89,7 @@ static void s_sbc_connection_change_cb(mw_sbc_connection_status_t status) {
   case MW_SBC_CONNECTION_NONE:
     lcd_task_noti_usb_unplugged();
     s_usb_disconnected_melody();
+    xTaskNotifyGive(s_central_task_hd);
     temp = false;
     break;
 
@@ -116,6 +117,8 @@ static void s_sbc_connection_change_cb(mw_sbc_connection_status_t status) {
 static void s_power_off(bool is_low_power) {
   log_warning(TAG, "Power off sequence start");
 
+  ulTaskNotifyTake(pdTRUE, 0);
+
   led_set_rc_mode(false);
   led_set_ros_mode(false);
 
@@ -129,7 +132,10 @@ static void s_power_off(bool is_low_power) {
     log_warning(TAG, "Power down in %d seconds", i);
     lcd_task_update_power_off(i, is_low_power);
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    int temp = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
+    if (temp != 0) {
+      i = 3;
+    }
   }
 
   power_set_sbc(false);

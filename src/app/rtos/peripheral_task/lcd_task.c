@@ -126,6 +126,60 @@ static void s_info_screen_toggle_timer_callback(TimerHandle_t timer_hd) {
   xQueueSend(s_lcd_task_queue_hd, &data, 0);
 }
 
+/**
+ * @brief LCD 전원 종료 시퀀스 (관련없는 이벤트 모두 무시)
+ *
+ * @note TODO: 이쁜 방법은 아니지만... 잘 작동하니.. 일단 이대로 두고 나중에 수정합시다.
+ *
+ */
+static void s_power_off(void) {
+  lcd_task_queue_data_t lcd_queue_data = {0};
+  char line_buff[16 + 1];
+
+  xTimerStop(s_info_screen_toggle_timer_hd, 0); // turn off info_screen_toggle_timer
+
+  for (;;) {
+    if (xQueueReceive(s_lcd_task_queue_hd, &lcd_queue_data, portMAX_DELAY) == pdTRUE) {
+      switch (lcd_queue_data.command) {
+      case LCD_TASK_COMMAND_POWER_OFF:
+        sprintf(line_buff, "Power off in %d", lcd_queue_data.data.power_off.countdown);
+        for (uint8_t i = 0; i < 16; i++) { // fill blank
+          if (line_buff[i] == 0) {
+            for (uint8_t j = i; j < 16; j++) {
+              line_buff[j] = ' ';
+            }
+            line_buff[16] = 0;
+            break;
+          }
+        }
+
+        lcd_set_cursor(0, 0);
+        lcd_set_string(line_buff);
+
+        if (lcd_queue_data.data.power_off.is_low_power) {
+          lcd_set_cursor(1, 0);
+          lcd_set_string("LOW POWER!!!    ");
+        } else {
+          lcd_set_cursor(1, 0);
+          lcd_set_string("                ");
+        }
+        break;
+
+      case LCD_TASK_COMMAND_FRAME:
+        lcd_next_frame();
+        break;
+
+      case LCD_TASK_COMMAND_FORCE_REINIT:
+        lcd_reinit_device();
+        break;
+
+      default:
+        break;
+      }
+    }
+  }
+}
+
 static void s_lcd_task(void *arg) {
   (void)arg;
 
@@ -207,29 +261,8 @@ static void s_lcd_task(void *arg) {
         break;
 
       case LCD_TASK_COMMAND_POWER_OFF:
-        xTimerStop(s_info_screen_toggle_timer_hd, 0); // turn off info_screen_toggle_timer
-
-        sprintf(line_buff, "Power off in %d", lcd_queue_data.data.power_off.countdown);
-        for (uint8_t i = 0; i < 16; i++) { // fill blank
-          if (line_buff[i] == 0) {
-            for (uint8_t j = i; j < 16; j++) {
-              line_buff[j] = ' ';
-            }
-            line_buff[16] = 0;
-            break;
-          }
-        }
-
-        lcd_set_cursor(0, 0);
-        lcd_set_string(line_buff);
-
-        if (lcd_queue_data.data.power_off.is_low_power) {
-          lcd_set_cursor(1, 0);
-          lcd_set_string("LOW POWER!!!    ");
-        } else {
-          lcd_set_cursor(1, 0);
-          lcd_set_string("                ");
-        }
+        xQueueSendToFront(s_lcd_task_queue_hd, &lcd_queue_data, 0);
+        s_power_off();
         break;
 
       case LCD_TASK_COMMAND_FRAME:
