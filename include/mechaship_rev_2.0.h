@@ -2,7 +2,7 @@
 #define C95E6B2C_8744_488C_BBB0_8EC5F75A1F81_H_
 
 // For board detection
-#define MECHASHIP_REV_1_0
+#define MECHASHIP_REV_2_0
 
 // On some samples, the xosc can take longer to stabilize than is usual
 #ifndef PICO_XOSC_STARTUP_DELAY_MULTIPLIER

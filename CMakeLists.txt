@@ -27,7 +27,7 @@ endif()
 
 # ====================================================================================
 set(PICO_BOARD_HEADER_DIRS ${CMAKE_CURRENT_LIST_DIR}/include)
-SET(PICO_BOARD mechaship_rev_1.0 CACHE STRING "Board type")
+SET(PICO_BOARD mechaship_rev_2.0 CACHE STRING "Board type")
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
 
