@@ -162,8 +162,7 @@ static void s_lcd_task(void *arg) {
           ;
         } else {
           lcd_set_cursor(1, 0);
-          lcd_set_string("ACT OFF     "); // TODO: off sequence 중 s_event_inject_task가 계속 돌아가서 화면 깜박거림 ㅋㅋㅋ
-                                          // 아랫쪽 todo때문에 sw timer 만드면서 이쪽에서 sw 타이머 죽이는 기능 넣을것.
+          lcd_set_string("ACT OFF     ");
         }
         break;
 
@@ -171,10 +170,10 @@ static void s_lcd_task(void *arg) {
         ip_addr = lcd_queue_data.data.ip_addr.ipv4;
 
         status_ui_toggle = true;
+
         lcd_queue_data.command = LCD_TASK_COMMAND_CHANGE_MAIN_INFO;
         xQueueSendToFront(s_lcd_task_queue_hd, &lcd_queue_data, 0); // force update main info
-                                                                    // TODO: s_event_inject_task의 last_change_main_info_tick를 초기화시켜주지 않으면 너무 빠르게 toggle될 수도 있음.
-                                                                    // 차라리 event inject하는 task보다 sw 타이머로 처리하는게 좋을지도..?
+        xTimerReset(s_info_screen_toggle_timer_hd, 0);
         break;
 
       case LCD_TASK_COMMAND_KEY:
@@ -208,6 +207,8 @@ static void s_lcd_task(void *arg) {
         break;
 
       case LCD_TASK_COMMAND_POWER_OFF:
+        xTimerStop(s_info_screen_toggle_timer_hd, 0); // turn off info_screen_toggle_timer
+
         sprintf(line_buff, "Power off in %d", lcd_queue_data.data.power_off.countdown);
         for (uint8_t i = 0; i < 16; i++) { // fill blank
           if (line_buff[i] == 0) {
@@ -246,71 +247,49 @@ static void s_lcd_task(void *arg) {
           }
         }
 
+        status_ui_toggle = false;
         system_status = lcd_queue_data.data.update_system_status.status;
 
-        status_ui_toggle = false;
         lcd_queue_data.command = LCD_TASK_COMMAND_CHANGE_MAIN_INFO;
         xQueueSendToFront(s_lcd_task_queue_hd, &lcd_queue_data, 0); // force update main info
+        xTimerReset(s_info_screen_toggle_timer_hd, 0);
         break;
 
       case LCD_TASK_COMMAND_CHANGE_MAIN_INFO:
+        lcd_set_cursor(0, 0);
         if (system_status == SYSTEM_STATUS_0) { // USB Unplugged
-          lcd_set_cursor(0, 0);
           lcd_set_string("Disconnected   ");
-        } else if (system_status == SYSTEM_STATUS_1 || system_status == SYSTEM_STATUS_2) { // USB Plugged || CDC Connected
-          lcd_set_cursor(0, 0);
-          if (status_ui_toggle == true) {
-            if (ip_addr == 0) {
-              sprintf(line_buff, "Waiting IP     ");
-            } else {
-              uint8_t octet1 = (ip_addr >> 24) & 0xFF;
-              uint8_t octet2 = (ip_addr >> 16) & 0xFF;
-              uint8_t octet3 = (ip_addr >> 8) & 0xFF;
-              uint8_t octet4 = ip_addr & 0xFF;
-
-              sprintf(line_buff, "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
-              for (uint8_t i = 0; i < 15; i++) { // fill blank
-                if (line_buff[i] == 0) {
-                  for (uint8_t j = i; j < 15; j++) {
-                    line_buff[j] = ' ';
-                  }
-                  line_buff[15] = 0;
-                  break;
-                }
-              }
-            }
-            lcd_set_string(line_buff);
-          } else {
-            lcd_set_string("USB Connected  ");
-          }
+        } else if (status_ui_toggle == true) {
           status_ui_toggle = !status_ui_toggle;
-        } else if (system_status == SYSTEM_STATUS_3) { // uROS Connected
-          lcd_set_cursor(0, 0);
-          if (status_ui_toggle == true) {
-            if (ip_addr == 0) {
-              sprintf(line_buff, "Waiting IP     ");
-            } else {
-              uint8_t octet1 = (ip_addr >> 24) & 0xFF;
-              uint8_t octet2 = (ip_addr >> 16) & 0xFF;
-              uint8_t octet3 = (ip_addr >> 8) & 0xFF;
-              uint8_t octet4 = ip_addr & 0xFF;
+          if (ip_addr == 0) {
+            sprintf(line_buff, "Waiting IP     ");
+          } else {
+            uint8_t octet1 = (ip_addr >> 24) & 0xFF;
+            uint8_t octet2 = (ip_addr >> 16) & 0xFF;
+            uint8_t octet3 = (ip_addr >> 8) & 0xFF;
+            uint8_t octet4 = ip_addr & 0xFF;
 
-              sprintf(line_buff, "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
-              for (uint8_t i = 0; i < 15; i++) { // fill blank
-                if (line_buff[i] == 0) {
-                  for (uint8_t j = i; j < 15; j++) {
-                    line_buff[j] = ' ';
-                  }
-                  line_buff[15] = 0;
-                  break;
+            sprintf(line_buff, "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
+            for (uint8_t i = 0; i < 15; i++) { // fill blank
+              if (line_buff[i] == 0) {
+                for (uint8_t j = i; j < 15; j++) {
+                  line_buff[j] = ' ';
                 }
+                line_buff[15] = 0;
+                break;
               }
             }
-            lcd_set_string(line_buff);
-          } else {
+          }
+          lcd_set_string(line_buff);
+        } else {
+          status_ui_toggle = !status_ui_toggle;
+          if (system_status == SYSTEM_STATUS_1) {
+            lcd_set_string("USB Connected  ");
+          } else if (system_status == SYSTEM_STATUS_2) {
+            lcd_set_string("SBC Connected  ");
+          } else if (system_status == SYSTEM_STATUS_3) {
             lcd_set_string("UROS Connected ");
           }
-          status_ui_toggle = !status_ui_toggle;
         }
         break;
 
