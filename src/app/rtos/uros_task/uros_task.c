@@ -151,7 +151,7 @@ static void s_uros_task(void *arg) {
     }
 
     // if ip changed, reinit uros due to rmw issue (related discussion: https://github.com/ros2/rmw/pull/344#issuecomment-1398861272)
-    volatile int temp = ulTaskNotifyTake(pdTRUE, 0);
+    int temp = ulTaskNotifyTake(pdTRUE, 0);
     if (temp != 0) {
       lcd_task_noti_uros_disconnected();
       actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
