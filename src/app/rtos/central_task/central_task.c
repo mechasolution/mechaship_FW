@@ -251,7 +251,6 @@ static void s_process_low_freq_task(void) {
   // watch battery
   float voltage = battery_get_voltage();
   float percentage = battery_get_percentage();
-  // TODO: 저전압 경고, 종료
 
   if (percentage <= 0) {
     s_power_off(true);
