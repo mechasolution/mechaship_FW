@@ -70,6 +70,7 @@ void app_start_sequence(void) {
     lcd_set_string("Power off in -");
     lcd_set_cursor(1, 0);
     lcd_set_string("LOW POWER!!!");
+    lcd_next_frame();
 
     tone_set(2000);
     time_block_ms(3000);
@@ -81,6 +82,7 @@ void app_start_sequence(void) {
     lcd_set_string("Power off in -");
     lcd_set_cursor(1, 0);
     lcd_set_string("HW init failed!!!");
+    lcd_next_frame();
 
     tone_set(2000);
     time_block_ms(3000);

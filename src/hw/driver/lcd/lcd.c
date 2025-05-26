@@ -16,7 +16,7 @@
 #define MAX_LINES 2
 #define MAX_CHARS 16
 
-static char s_lcd_buff[MAX_LINES][MAX_CHARS] = {0};
+static char s_lcd_buff[MAX_LINES][MAX_CHARS];
 static uint8_t s_ptr_line = 0, s_ptr_char = 0;
 
 static void s_i2c_write_byte(uint8_t val) {
@@ -58,6 +58,12 @@ bool lcd_init(void) {
   gpio_set_function(HWCONF_PIN_I2C1_SCL, GPIO_FUNC_I2C);
 
   s_lcd_reset();
+
+  for (uint8_t i = 0; i < MAX_LINES; i++) {
+    for (uint8_t j = 0; j < MAX_CHARS; j++) {
+      s_lcd_buff[i][j] = ' ';
+    }
+  }
 
   return true;
 }
