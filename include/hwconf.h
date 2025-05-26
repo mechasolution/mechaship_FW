@@ -50,7 +50,7 @@
  *
  */
 #define HWCONF_BATTERY_CELL_CNT 3                                              // 배터리 셀 수
-#define HWCONF_BATTERY_TOTAL_LOW_ALERT_VOLTAGE (3.0 * HWCONF_BATTERY_CELL_CNT) // 저전압 컷 전압 (SBC, ACT 작동 중지)
+#define HWCONF_BATTERY_TOTAL_LOW_ALERT_VOLTAGE (3.1 * HWCONF_BATTERY_CELL_CNT) // 저전압 컷 전압 (전원 강제 종료)
 #define HWCONF_BATTERY_CELL_VOLTAGE_DEVIDER_HIGH_SIDE 33.0                     // 셀 분배저항 +측
 #define HWCONF_BATTERY_CELL_VOLTAGE_DEVIDER_LOW_SIDE 10.0                      // 셀 분배저항 -측
 
