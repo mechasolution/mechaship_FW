@@ -83,27 +83,27 @@ static void s_usb_connected_melody(void) {
 }
 
 static void s_sbc_connection_change_cb(mw_sbc_connection_status_t status) {
-  static bool temp = false;
+  static bool usb_connected_melody_fired = false; // USB 연결될 때 MW_SBC_CONNECTION_USB, MW_SBC_CONNECTION_CDC 이벤트 둘 중 하나 씹힐 수 있음 해결 위한 로직
 
   switch (status) {
   case MW_SBC_CONNECTION_NONE:
     lcd_task_noti_usb_unplugged();
     s_usb_disconnected_melody();
     xTaskNotifyGive(s_central_task_hd);
-    temp = false;
+    usb_connected_melody_fired = false;
     break;
 
   case MW_SBC_CONNECTION_USB:
-    if (temp == false) {
-      temp = true;
+    if (usb_connected_melody_fired == false) {
+      usb_connected_melody_fired = true;
       s_usb_connected_melody();
     }
     lcd_task_noti_usb_plugged();
     break;
 
   case MW_SBC_CONNECTION_CDC:
-    if (temp == false) {
-      temp = true;
+    if (usb_connected_melody_fired == false) {
+      usb_connected_melody_fired = true;
       s_usb_connected_melody();
     }
     lcd_task_noti_cdc_connected();
