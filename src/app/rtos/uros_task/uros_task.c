@@ -141,6 +141,7 @@ static void s_uros_task(void *arg) {
         sled_task_set_pattern(SLED_TASK_PATTERN_SOLID);
       } else {
         lcd_task_noti_uros_disconnected();
+        actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
         sled_task_set_pattern(SLED_TASK_PATTERN_REFLASH);
       }
     }
