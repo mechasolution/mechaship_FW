@@ -19,7 +19,7 @@ bool app_init(void) {
 }
 
 static bool s_test_battery(void) {
-  return battery_get_percentage() > 0;
+  return battery_get_percentage() > 5;
 }
 
 static bool s_test_hw(void) {
