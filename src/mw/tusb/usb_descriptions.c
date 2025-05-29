@@ -201,11 +201,11 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
 // array of pointer to string descriptors
 char const *string_desc_arr[] =
     {
-        (const char[]){0x09, 0x04}, // 0: is supported language is English (0x0409)
-        "Mechasolution",            // 1: Manufacturer
-        "MechaShip MCU",            // 2: Product
-        NULL,                       // 3: Serials, should use chip ID
-        "TinyUSB CDC",              // 4: CDC Interface
+        (const char[]){0x09, 0x04},  // 0: is supported language is English (0x0409)
+        "Mechasolution",             // 1: Manufacturer
+        "MechaShip Motherboard",     // 2: Product
+        NULL,                        // 3: Serials, should use chip ID
+        "MechaShip Motherboard CDC", // 4: CDC Interface
 };
 
 static uint16_t _desc_str[32];
