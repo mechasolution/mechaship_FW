@@ -41,11 +41,11 @@ typedef enum {
 
 typedef union {
   struct { // UROS_SUB_KEY
-    float degree;
+    double degree;
   } key_degree;
 
   struct { // UROS_SUB_THROTTLE
-    float percentage;
+    double percentage;
   } throttle_percentage;
 
   struct { // UROS_SUB_TONE

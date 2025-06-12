@@ -9,7 +9,7 @@
 #include <mechaship_interfaces/msg/rgbw_led_color.h>
 #include <mechaship_interfaces/msg/tone_topic.h>
 #include <std_msgs/msg/bool.h>
-#include <std_msgs/msg/float32.h>
+#include <std_msgs/msg/float64.h>
 #include <std_msgs/msg/u_int32.h>
 
 #include "support.h"
@@ -23,11 +23,11 @@ static uros_sub_callback_t s_callback = NULL;
 
 static rcl_subscription_t s_key_subscription;
 static uros_sub_data_flag_t s_key_msg_flag = UROS_SUB_KEY;
-static std_msgs__msg__Float32 s_key_msg;
+static std_msgs__msg__Float64 s_key_msg;
 
 static rcl_subscription_t s_throttle_subscription;
 static uros_sub_data_flag_t s_throttle_msg_flag = UROS_SUB_THROTTLE;
-static std_msgs__msg__Float32 s_throttle_msg;
+static std_msgs__msg__Float64 s_throttle_msg;
 
 static rcl_subscription_t s_tone_subscription;
 static uros_sub_data_flag_t s_tone_msg_flag = UROS_SUB_TONE;
@@ -99,7 +99,7 @@ bool subscriber_create(rcl_node_t *node) {
       rclc_subscription_init_default(
           &s_key_subscription,
           node,
-          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
+          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
           "actuator/key/degree"));
 
   RCCHECK_RETURN_FALSE(
@@ -107,7 +107,7 @@ bool subscriber_create(rcl_node_t *node) {
       rclc_subscription_init_default(
           &s_throttle_subscription,
           node,
-          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
+          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
           "actuator/thruster/percentage"));
 
   RCCHECK_RETURN_FALSE(
