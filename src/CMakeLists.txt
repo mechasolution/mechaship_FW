@@ -44,6 +44,15 @@ set_target_properties(mechaship_fw PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
+execute_process(
+  COMMAND git rev-parse --short HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+add_definitions(-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\")
+
 pico_generate_pio_header(mechaship_fw ${PIO_FILES_LIST})
 
 pico_add_extra_outputs(mechaship_fw)

@@ -18,6 +18,8 @@ typedef struct {
 
     SBC_TASK_COMMAND_BATTERY_INFO,
     SBC_TASK_COMMAND_POWER_OFF,
+
+    SBC_TASK_COMMAND_SEND_HW_INFO,
   } command;
 
   union {
@@ -29,6 +31,10 @@ typedef struct {
     struct {  // SBC_TASK_COMMAND_POWER_OFF
       bool _; // no data needed
     } power_off;
+
+    struct {  // SBC_TASK_COMMAND_SEND_HW_INFO
+      bool _; // no data needed
+    } send_hw_info;
   } data;
 
 } sbc_task_queue_data_t;
@@ -48,7 +54,7 @@ mw_sbc_connection_change_callback connection_change_callback = NULL;
 
 static uint32_t s_last_ip = 0;
 
-#define BUFF_MAX 50
+#define BUFF_MAX 70
 static void s_process_tx(sbc_task_queue_data_t *queue_data) {
   char buff[BUFF_MAX];
 
@@ -63,6 +69,14 @@ static void s_process_tx(sbc_task_queue_data_t *queue_data) {
 
   case SBC_TASK_COMMAND_POWER_OFF:
     sprintf(buff, "$PO,0\r\n");
+    if (tud_cdc_n_connected(1)) {
+      tud_cdc_n_write_str(1, buff);
+      tud_cdc_n_write_flush(1);
+    }
+    break;
+
+  case SBC_TASK_COMMAND_SEND_HW_INFO:
+    sprintf(buff, "$IN,%s,%s,%s\r\n", __DATE__, __TIME__, GIT_COMMIT_HASH);
     if (tud_cdc_n_connected(1)) {
       tud_cdc_n_write_str(1, buff);
       tud_cdc_n_write_flush(1);
@@ -100,6 +114,13 @@ static bool s_parse(char *arr) {
         ipv4_change_callback(curr_ip);
       }
     }
+    break;
+  }
+
+  case 0x494e: { // IN - info
+    sbc_task_queue_data_t queue_data = {0};
+    queue_data.command = SBC_TASK_COMMAND_SEND_HW_INFO;
+    xQueueSend(s_sbc_task_queue_hd, &queue_data, 0);
     break;
   }
 
