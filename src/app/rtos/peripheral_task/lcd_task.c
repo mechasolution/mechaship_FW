@@ -292,6 +292,8 @@ static void s_lcd_task(void *arg) {
         lcd_set_cursor(0, 0);
         if (system_status == SYSTEM_STATUS_0) { // USB Unplugged
           lcd_set_string("Disconnected   ");
+        } else if (system_status == SYSTEM_STATUS_1) { // USB Pluged to watever PC
+          lcd_set_string("USB Connected  ");
         } else if (status_ui_toggle == true) {
           status_ui_toggle = !status_ui_toggle;
           if (ip_addr == 0) {
@@ -316,9 +318,7 @@ static void s_lcd_task(void *arg) {
           lcd_set_string(line_buff);
         } else {
           status_ui_toggle = !status_ui_toggle;
-          if (system_status == SYSTEM_STATUS_1) {
-            lcd_set_string("USB Connected  ");
-          } else if (system_status == SYSTEM_STATUS_2) {
+          if (system_status == SYSTEM_STATUS_2) {
             lcd_set_string("SBC Connected  ");
           } else if (system_status == SYSTEM_STATUS_3) {
             lcd_set_string("UROS Connected ");
