@@ -25,13 +25,13 @@ static bool s_test_battery(void) {
 static bool s_test_hw(void) {
   // TODO: Move all test functions to their respective drivers, like "led_test"
   led_test(true);
+  rgbw_led_test(true);
 
   lcd_set_string("0123456789abcdef");
   lcd_set_cursor(1, 0);
   lcd_set_string("ghijklmnopqrstuv");
   lcd_next_frame();
 
-  rgbw_led_set_pixels(rgbw_led_get_color(5, 5, 5, 5));
   tone_set(741);
 
   time_block_ms(100);
@@ -45,11 +45,10 @@ static bool s_test_hw(void) {
   }
 
   led_test(false);
+  rgbw_led_test(false);
 
   lcd_clear();
   lcd_next_frame();
-
-  rgbw_led_clear_all();
 
   time_block_ms(500);
 

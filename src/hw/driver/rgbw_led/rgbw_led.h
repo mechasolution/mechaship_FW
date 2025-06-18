@@ -7,6 +7,7 @@
 typedef uint32_t rgbw_color_data_t;
 
 bool rgbw_led_init(void);
+void rgbw_led_test(bool st);
 void rgbw_led_set_pixels(rgbw_color_data_t color);
 void rgbw_led_set_onboard_pixel(rgbw_color_data_t color);
 

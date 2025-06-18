@@ -30,3 +30,15 @@ void rgbw_led_set_pixels(rgbw_color_data_t color) {
 void rgbw_led_set_onboard_pixel(rgbw_color_data_t color) {
   pio_sm_put_blocking(PIO_CHANNEL, 0, color);
 }
+
+void rgbw_led_test(bool st) {
+  if (st) {
+    pio_sm_put_blocking(PIO_CHANNEL, 0, rgbw_led_get_color(5, 5, 5, 5));
+
+    for (uint8_t i = 1; i < HWCONF_RGBW_LED_PIXEL_CNT; i++) {
+      pio_sm_put_blocking(PIO_CHANNEL, 0, rgbw_led_get_color(255, 255, 255, 255));
+    }
+  } else {
+    rgbw_led_clear_all();
+  }
+}
