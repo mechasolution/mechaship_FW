@@ -27,6 +27,7 @@ typedef struct {
 
     CENTRAL_TASK_COMMAND_IP,
     CENTRAL_TASK_COMMAND_SBC_CONNECTION,
+    CENTRAL_TASK_COMMAND_POWER_OFF_REQUEST,
   } command;
   union {
     struct { // CENTRAL_TASK_COMMAND_IP
@@ -36,6 +37,10 @@ typedef struct {
     struct { // CENTRAL_TASK_COMMAND_SBC_CONNECTION
       bool status;
     } sbc_connection;
+
+    struct { // CENTRAL_TASK_COMMAND_POWER_OFF_REQUEST
+      bool _;
+    } power_off_request;
   } data;
 } central_task_queue_data_t;
 #define CENTRAL_TASK_QUEUE_LENGTH 4
@@ -207,6 +212,10 @@ static void s_process_event(central_task_queue_data_t *queue_data, mode_t curren
     lcd_task_update_ip_addr(queue_data->data.ip.ipv4);
     break;
 
+  case CENTRAL_TASK_COMMAND_POWER_OFF_REQUEST:
+    s_power_off(false);
+    break;
+
   case CENTRAL_TASK_COMMAND_NONE:
   default:
     break;
@@ -269,6 +278,16 @@ static void s_process_low_freq_task(void) {
   mw_sbc_report_battery_info(voltage, percentage);
 }
 
+static void s_power_off_request_event_cb(void) {
+  central_task_queue_data_t data;
+  data.command = CENTRAL_TASK_COMMAND_POWER_OFF_REQUEST;
+  bool ret = xQueueSend(s_central_task_queue_hd, &data, 0);
+
+  if (ret == false) {
+    log_warning(TAG, "Publish queue full!! message dropped!!");
+  }
+}
+
 static void s_central_task(void *arg) {
   central_task_queue_data_t queue_data = {0};
   TickType_t last_low_freq_work_tick = 0;
@@ -277,6 +296,7 @@ static void s_central_task(void *arg) {
   lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_NONE);
   mw_sbc_set_ipv4_change_callback(s_sbc_ip_change_cb);
   mw_sbc_set_connection_change_callback(s_sbc_connection_change_cb);
+  mw_sbc_set_power_off_request_callback(s_power_off_request_event_cb);
 
   vTaskDelay(pdMS_TO_TICKS(100));
 

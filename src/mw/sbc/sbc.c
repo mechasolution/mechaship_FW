@@ -51,6 +51,7 @@ static StaticTask_t s_sbc_task_struct;
 
 mw_sbc_ipv4_change_callback ipv4_change_callback = NULL;
 mw_sbc_connection_change_callback connection_change_callback = NULL;
+mw_sbc_power_off_request_callback power_off_request_callback = NULL;
 
 static uint32_t s_last_ip = 0;
 
@@ -123,6 +124,12 @@ static bool s_parse(char *arr) {
     xQueueSend(s_sbc_task_queue_hd, &queue_data, 0);
     break;
   }
+
+  case 0x504f:
+    if (power_off_request_callback != NULL) {
+      power_off_request_callback();
+    }
+    break;
 
   default:
     return false;
@@ -263,4 +270,8 @@ void mw_sbc_set_ipv4_change_callback(mw_sbc_ipv4_change_callback callback) {
 
 void mw_sbc_set_connection_change_callback(mw_sbc_connection_change_callback callback) {
   connection_change_callback = callback;
+}
+
+void mw_sbc_set_power_off_request_callback(mw_sbc_power_off_request_callback callback) {
+  power_off_request_callback = callback;
 }
