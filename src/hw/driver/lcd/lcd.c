@@ -74,6 +74,18 @@ bool lcd_reinit_device(void) {
   return true;
 }
 
+void lcd_test(bool st) {
+  if (st) {
+    lcd_set_string("0123456789abcdef");
+    lcd_set_cursor(1, 0);
+    lcd_set_string("ghijklmnopqrstuv");
+    lcd_next_frame();
+  } else {
+    lcd_clear();
+    lcd_next_frame();
+  }
+}
+
 void s_lcd_set_cursor(int line, int position) {
   if (line >= MAX_LINES - 1) {
     line = MAX_LINES - 1;

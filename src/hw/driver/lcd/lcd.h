@@ -6,6 +6,7 @@
 
 bool lcd_init(void);
 bool lcd_reinit_device(void);
+void lcd_test(bool st);
 
 void lcd_set_cursor(int line, int position);
 void lcd_set_char(char val);

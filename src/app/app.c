@@ -26,16 +26,10 @@ static bool s_test_hw(void) {
   // TODO: Move all test functions to their respective drivers, like "led_test"
   led_test(true);
   rgbw_led_test(true);
-
-  lcd_set_string("0123456789abcdef");
-  lcd_set_cursor(1, 0);
-  lcd_set_string("ghijklmnopqrstuv");
-  lcd_next_frame();
+  lcd_test(true);
 
   tone_set(741);
-
   time_block_ms(100);
-
   tone_reset();
 
   time_block_ms(1900);
@@ -46,9 +40,7 @@ static bool s_test_hw(void) {
 
   led_test(false);
   rgbw_led_test(false);
-
-  lcd_clear();
-  lcd_next_frame();
+  lcd_test(false);
 
   time_block_ms(500);
 
@@ -93,6 +85,5 @@ void app_start_sequence(void) {
 }
 
 void app_main(void) {
-
   rtos_start();
 }
