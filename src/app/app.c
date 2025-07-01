@@ -23,7 +23,6 @@ static bool s_test_battery(void) {
 }
 
 static bool s_test_hw(void) {
-  // TODO: Move all test functions to their respective drivers, like "led_test"
   led_test(true);
   rgbw_led_test(true);
   lcd_test(true);
