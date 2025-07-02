@@ -17,6 +17,7 @@ bool mw_sbc_init(void);
 
 bool mw_sbc_report_battery_info(float voltage, float percentage);
 bool mw_sbc_report_power_off(void);
+bool mw_sbc_report_domain_id(uint8_t id);
 
 void mw_sbc_set_ipv4_change_callback(mw_sbc_ipv4_change_callback callback);
 void mw_sbc_set_connection_change_callback(mw_sbc_connection_change_callback callback);

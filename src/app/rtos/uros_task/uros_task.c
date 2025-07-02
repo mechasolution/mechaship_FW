@@ -15,6 +15,7 @@
 
 #include "hal/time/time.h"
 
+#include "sbc/sbc.h"
 #include "uros/uros.h"
 
 #include "uros_task.h"
@@ -114,6 +115,8 @@ static void s_uros_task(void *arg) {
 
   bool uros_connection = false;
   uros_pub_data_t buff;
+  uint8_t domain_id = switch8_get_sum();
+  TickType_t last_sbc_domain_id_send_tick = 0;
 
   sled_task_set_pattern(SLED_TASK_PATTERN_REFLASH);
   s_task_start_melody();
@@ -125,7 +128,7 @@ static void s_uros_task(void *arg) {
     uros_srv_set_callback(s_uros_req_cb);
   }
 
-  uros_set_domain_id(switch8_get_sum());
+  uros_set_domain_id(domain_id);
   uros_init();
 
   for (;;) {
@@ -144,6 +147,30 @@ static void s_uros_task(void *arg) {
         actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
         sled_task_set_pattern(SLED_TASK_PATTERN_REFLASH);
       }
+    }
+
+    // check domain id and update when needed
+    uint8_t domain_id_temp = switch8_get_sum();
+    if (domain_id != domain_id_temp) {
+      domain_id = domain_id_temp;
+
+      uros_set_domain_id(domain_id);
+      mw_sbc_report_domain_id(domain_id);
+      last_sbc_domain_id_send_tick = xTaskGetTickCount();
+
+      if (curr_connection == true) {
+        uros_deinit();
+        vTaskDelay(pdMS_TO_TICKS(10)); // good to have
+        uros_init();
+
+        continue; // 이 시점에 분명히 연결 끊어져있음.
+      }
+    }
+
+    // report domain id to sbc
+    if (xTaskGetTickCount() - last_sbc_domain_id_send_tick >= pdMS_TO_TICKS(5000)) {
+      last_sbc_domain_id_send_tick = xTaskGetTickCount();
+      mw_sbc_report_domain_id(domain_id);
     }
 
     // if uros disconnected, continue

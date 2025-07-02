@@ -18,6 +18,7 @@ typedef struct {
 
     SBC_TASK_COMMAND_BATTERY_INFO,
     SBC_TASK_COMMAND_POWER_OFF,
+    SBC_TASK_COMMAND_DOMAIN_ID,
 
     SBC_TASK_COMMAND_SEND_HW_INFO,
   } command;
@@ -31,6 +32,10 @@ typedef struct {
     struct {  // SBC_TASK_COMMAND_POWER_OFF
       bool _; // no data needed
     } power_off;
+
+    struct { // SBC_TASK_COMMAND_DOMAIN_ID
+      uint8_t id;
+    } domain_id;
 
     struct {  // SBC_TASK_COMMAND_SEND_HW_INFO
       bool _; // no data needed
@@ -70,6 +75,14 @@ static void s_process_tx(sbc_task_queue_data_t *queue_data) {
 
   case SBC_TASK_COMMAND_POWER_OFF:
     sprintf(buff, "$PO,0\r\n");
+    if (tud_cdc_n_connected(1)) {
+      tud_cdc_n_write_str(1, buff);
+      tud_cdc_n_write_flush(1);
+    }
+    break;
+
+  case SBC_TASK_COMMAND_DOMAIN_ID:
+    sprintf(buff, "$ID,%d\r\n", queue_data->data.domain_id.id); // TODO: sprintf 이거 if문안에 넣으면 안되나..? refactor하삼
     if (tud_cdc_n_connected(1)) {
       tud_cdc_n_write_str(1, buff);
       tud_cdc_n_write_flush(1);
@@ -260,6 +273,14 @@ bool mw_sbc_report_battery_info(float voltage, float percentage) {
 bool mw_sbc_report_power_off(void) {
   sbc_task_queue_data_t queue_data;
   queue_data.command = SBC_TASK_COMMAND_POWER_OFF;
+
+  return s_send_queue(&queue_data);
+}
+
+bool mw_sbc_report_domain_id(uint8_t id) {
+  sbc_task_queue_data_t queue_data;
+  queue_data.command = SBC_TASK_COMMAND_DOMAIN_ID;
+  queue_data.data.domain_id.id = id;
 
   return s_send_queue(&queue_data);
 }
