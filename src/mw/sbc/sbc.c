@@ -66,32 +66,32 @@ static void s_process_tx(sbc_task_queue_data_t *queue_data) {
 
   switch (queue_data->command) {
   case SBC_TASK_COMMAND_BATTERY_INFO:
-    sprintf(buff, "$BT,%.2f,%.2f\r\n", queue_data->data.battery_info.voltage, queue_data->data.battery_info.percentage);
     if (tud_cdc_n_connected(1)) {
+      sprintf(buff, "$BT,%.2f,%.2f\r\n", queue_data->data.battery_info.voltage, queue_data->data.battery_info.percentage);
       tud_cdc_n_write_str(1, buff);
       tud_cdc_n_write_flush(1);
     }
     break;
 
   case SBC_TASK_COMMAND_POWER_OFF:
-    sprintf(buff, "$PO,0\r\n");
     if (tud_cdc_n_connected(1)) {
+      sprintf(buff, "$PO,0\r\n");
       tud_cdc_n_write_str(1, buff);
       tud_cdc_n_write_flush(1);
     }
     break;
 
   case SBC_TASK_COMMAND_DOMAIN_ID:
-    sprintf(buff, "$ID,%d\r\n", queue_data->data.domain_id.id); // TODO: sprintf 이거 if문안에 넣으면 안되나..? refactor하삼
     if (tud_cdc_n_connected(1)) {
+      sprintf(buff, "$ID,%d\r\n", queue_data->data.domain_id.id);
       tud_cdc_n_write_str(1, buff);
       tud_cdc_n_write_flush(1);
     }
     break;
 
   case SBC_TASK_COMMAND_SEND_HW_INFO:
-    sprintf(buff, "$IN,%s,%s,%s\r\n", __DATE__, __TIME__, GIT_COMMIT_HASH);
     if (tud_cdc_n_connected(1)) {
+      sprintf(buff, "$IN,%s,%s,%s\r\n", __DATE__, __TIME__, GIT_COMMIT_HASH);
       tud_cdc_n_write_str(1, buff);
       tud_cdc_n_write_flush(1);
     }
