@@ -168,6 +168,7 @@ static void s_uros_task(void *arg) {
     }
 
     // report domain id to sbc
+    // TODO: SBC와 연결되는 시점에 바로 전송 (task alert 추가)
     if (xTaskGetTickCount() - last_sbc_domain_id_send_tick >= pdMS_TO_TICKS(5000)) {
       last_sbc_domain_id_send_tick = xTaskGetTickCount();
       mw_sbc_report_domain_id(domain_id);
