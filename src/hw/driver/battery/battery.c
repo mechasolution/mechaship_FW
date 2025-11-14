@@ -16,7 +16,7 @@ bool battery_init(void) {
 }
 
 float battery_get_voltage(void) {
-  return adc_read() * (3.3 / 4095.0) * HWCONF_BATTERY_VOLTAGE_DEVIDER + 0.2;
+  return adc_read() * (3.3 / 4095.0) * HWCONF_BATTERY_VOLTAGE_DEVIDER;
 }
 
 float battery_get_percentage(void) {
