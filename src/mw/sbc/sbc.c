@@ -54,9 +54,9 @@ static TaskHandle_t s_sbc_task_hd = NULL;
 static StackType_t s_sbc_task_buff[SBC_TASK_SIZE];
 static StaticTask_t s_sbc_task_struct;
 
-mw_sbc_ipv4_change_callback ipv4_change_callback = NULL;
-mw_sbc_connection_change_callback connection_change_callback = NULL;
-mw_sbc_power_off_request_callback power_off_request_callback = NULL;
+static mw_sbc_ipv4_change_callback s_ipv4_change_callback = NULL;
+static mw_sbc_connection_change_callback s_connection_change_callback = NULL;
+static mw_sbc_power_off_request_callback s_power_off_request_callback = NULL;
 
 static uint32_t s_last_ip = 0;
 
@@ -124,8 +124,8 @@ static bool s_parse(char *arr) {
                 ip_1, ip_2, ip_3, ip_4);
 
       s_last_ip = curr_ip;
-      if (ipv4_change_callback != NULL) {
-        ipv4_change_callback(curr_ip);
+      if (s_ipv4_change_callback != NULL) {
+        s_ipv4_change_callback(curr_ip);
       }
     }
     break;
@@ -139,8 +139,8 @@ static bool s_parse(char *arr) {
   }
 
   case 0x504f:
-    if (power_off_request_callback != NULL) {
-      power_off_request_callback();
+    if (s_power_off_request_callback != NULL) {
+      s_power_off_request_callback();
     }
     break;
 
@@ -192,15 +192,15 @@ static void s_process_connection_change_event(void) {
   }
 
   if (last_connection_status != current_connection_status) {
-    if (connection_change_callback != NULL) {
+    if (s_connection_change_callback != NULL) {
       last_connection_status = current_connection_status; // event must be processed
-      connection_change_callback(current_connection_status);
+      s_connection_change_callback(current_connection_status);
     }
 
     if (current_connection_status == MW_SBC_CONNECTION_NONE) {
       s_last_ip = 0;
-      if (ipv4_change_callback != NULL) {
-        ipv4_change_callback(0);
+      if (s_ipv4_change_callback != NULL) {
+        s_ipv4_change_callback(0);
       }
     }
   }
@@ -286,13 +286,13 @@ bool mw_sbc_report_domain_id(uint8_t id) {
 }
 
 void mw_sbc_set_ipv4_change_callback(mw_sbc_ipv4_change_callback callback) {
-  ipv4_change_callback = callback;
+  s_ipv4_change_callback = callback;
 }
 
 void mw_sbc_set_connection_change_callback(mw_sbc_connection_change_callback callback) {
-  connection_change_callback = callback;
+  s_connection_change_callback = callback;
 }
 
 void mw_sbc_set_power_off_request_callback(mw_sbc_power_off_request_callback callback) {
-  power_off_request_callback = callback;
+  s_power_off_request_callback = callback;
 }
