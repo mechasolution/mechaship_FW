@@ -248,17 +248,47 @@ static mode_t s_process_mode_change(void) {
   return current_mode;
 }
 
+static void s_process_switch_short_clicks(uint8_t cnt) {
+  ;
+}
+
 static void s_process_switch(void) {
-  static TickType_t last_switch_tick = 0;
+  static TickType_t press_start_tick = 0; // 누르기 시작한 시간
+  static TickType_t press_end_tick = 0;   // 스위치 접점 떨어진 시간
+  static uint8_t click_count = 0;
   static bool last_switch = false;
 
   bool current_switch = power_get_button();
-  if (last_switch != current_switch) {
-    last_switch_tick = xTaskGetTickCount();
+
+  if (last_switch == current_switch) { // 상태 변하지 않은 경우
+    // 스위치 누른 상태에서 5초 이상 경과 -> 길게 누르기 처리
+    if (current_switch == true && xTaskGetTickCount() - press_start_tick >= pdMS_TO_TICKS(5000)) {
+      s_power_off(false);
+    }
+
+    // 스위치 누르지 않은 상태에서 일정 시간 경과 -> 더블/싱글클릭 처리
+    if (current_switch == false && click_count != 0 && xTaskGetTickCount() - press_end_tick >= pdMS_TO_TICKS(400)) {
+      click_count = (click_count + 1) / 2;
+      s_process_switch_short_clicks(click_count);
+      click_count = 0;
+    }
+  } else { // 상태 변한경우 -> 싱글, 더블클릭 카운트
     last_switch = current_switch;
-  }
-  if (current_switch == true && xTaskGetTickCount() - last_switch_tick >= pdMS_TO_TICKS(5000)) {
-    s_power_off(false);
+    if (current_switch == true) { // 스위치 누른 상황
+      press_start_tick = xTaskGetTickCount();
+      if (xTaskGetTickCount() - press_end_tick <= pdMS_TO_TICKS(10)) { // debounce
+        ;
+      } else {
+        click_count++;
+      }
+    } else { // 스위치 땐 상황
+      press_end_tick = xTaskGetTickCount();
+      if (xTaskGetTickCount() - press_start_tick <= pdMS_TO_TICKS(10)) { // debounce
+        ;
+      } else if (xTaskGetTickCount() - press_start_tick <= pdMS_TO_TICKS(200)) {
+        click_count++;
+      }
+    }
   }
 }
 
