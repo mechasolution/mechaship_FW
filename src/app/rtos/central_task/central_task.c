@@ -21,6 +21,8 @@
 
 #define TAG "central"
 
+#define SWITCH_DOUBLE_CLICK_PERIOS_MS 100
+
 typedef struct {
   enum {
     CENTRAL_TASK_COMMAND_NONE = 0x00,
@@ -267,7 +269,7 @@ static void s_process_switch(void) {
     }
 
     // 스위치 누르지 않은 상태에서 일정 시간 경과 -> 더블/싱글클릭 처리
-    if (current_switch == false && click_count != 0 && xTaskGetTickCount() - press_end_tick >= pdMS_TO_TICKS(400)) {
+    if (current_switch == false && click_count != 0 && xTaskGetTickCount() - press_end_tick > pdMS_TO_TICKS(SWITCH_DOUBLE_CLICK_PERIOS_MS)) {
       click_count = (click_count + 1) / 2;
       s_process_switch_short_clicks(click_count);
       click_count = 0;
@@ -285,7 +287,7 @@ static void s_process_switch(void) {
       press_end_tick = xTaskGetTickCount();
       if (xTaskGetTickCount() - press_start_tick <= pdMS_TO_TICKS(10)) { // debounce
         ;
-      } else if (xTaskGetTickCount() - press_start_tick <= pdMS_TO_TICKS(200)) {
+      } else if (xTaskGetTickCount() - press_start_tick <= pdMS_TO_TICKS(SWITCH_DOUBLE_CLICK_PERIOS_MS)) {
         click_count++;
       }
     }
