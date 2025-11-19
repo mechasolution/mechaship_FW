@@ -270,7 +270,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     // 연결 상태 표시 (swap==false)
-    if (lcd_data->main.usb_connection_changed && lcd_data->info_swap == false) {
+    if (lcd_data->main.usb_connection_changed == true && lcd_data->info_swap == false) {
       lcd_data->main.usb_connection_changed = false;
       char line_buff[16 + 1] = {0};
 
@@ -305,7 +305,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     // IP 주소 표시 (swap==true && usb usb_connection >= USB_CONNECTION_2)
-    if (lcd_data->main.ipv4_changed &&
+    if (lcd_data->main.ipv4_changed == true &&
         lcd_data->info_swap == true && lcd_data->main.usb_connection >= USB_CONNECTION_2) {
       lcd_data->main.ipv4_changed = false;
       char line_buff[16 + 1] = {0};
