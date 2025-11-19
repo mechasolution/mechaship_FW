@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <FreeRTOS.h>
 #include <queue.h>
@@ -19,6 +20,9 @@ typedef struct {
     SBC_TASK_COMMAND_BATTERY_INFO,
     SBC_TASK_COMMAND_POWER_OFF,
     SBC_TASK_COMMAND_DOMAIN_ID,
+
+    SBC_TASK_COMMAND_REQUEST_NETWORK_INFO,
+    SBC_TASK_COMMAND_REQUEST_PING,
 
     SBC_TASK_COMMAND_SEND_HW_INFO,
   } command;
@@ -57,6 +61,8 @@ static StaticTask_t s_sbc_task_struct;
 static mw_sbc_ipv4_change_callback s_ipv4_change_callback = NULL;
 static mw_sbc_connection_change_callback s_connection_change_callback = NULL;
 static mw_sbc_power_off_request_callback s_power_off_request_callback = NULL;
+static mw_sbc_network_info_response_callback s_network_info_response_callback = NULL;
+static mw_sbc_ping_response_callback s_ping_response_callback = NULL;
 
 static uint32_t s_last_ip = 0;
 
@@ -92,6 +98,22 @@ static void s_process_tx(sbc_task_queue_data_t *queue_data) {
   case SBC_TASK_COMMAND_SEND_HW_INFO:
     if (tud_cdc_n_connected(1)) {
       sprintf(buff, "$IN,%s,%s,%s\r\n", __DATE__, __TIME__, GIT_COMMIT_HASH);
+      tud_cdc_n_write_str(1, buff);
+      tud_cdc_n_write_flush(1);
+    }
+    break;
+
+  case SBC_TASK_COMMAND_REQUEST_NETWORK_INFO:
+    if (tud_cdc_n_connected(1)) {
+      sprintf(buff, "$IW\r\n");
+      tud_cdc_n_write_str(1, buff);
+      tud_cdc_n_write_flush(1);
+    }
+    break;
+
+  case SBC_TASK_COMMAND_REQUEST_PING:
+    if (tud_cdc_n_connected(1)) {
+      sprintf(buff, "$PG\r\n");
       tud_cdc_n_write_str(1, buff);
       tud_cdc_n_write_flush(1);
     }
@@ -143,6 +165,68 @@ static bool s_parse(char *arr) {
       s_power_off_request_callback();
     }
     break;
+
+  case 0x4957: { // IW
+    mw_sbc_network_status_t type;
+    char type_str[5] = {0}, ssid[17] = {0};
+    int8_t rssi;
+    uint16_t frequency;
+
+    // $IW,WLAN,mechasolution_5GHz,-12,5120\r\n
+    char *token = strtok(arr, ","); // $IW
+
+    token = strtok(NULL, ","); // LAN/WLAN/NONE
+    if (token == NULL) {
+      break;
+    }
+    strncpy(type_str, token, 4);
+    if (type_str[0] == 'W') { // WLAN
+      type = MW_SBC_NETWORK_STATUS_WLAN;
+    } else if (type_str[0] == 'L') { // LAN
+      type = MW_SBC_NETWORK_STATUS_LAN;
+    } else { // unknown
+      type = MW_SBC_NETWORK_STATUS_NONE;
+    }
+
+    token = strtok(NULL, ","); // ssid
+    if (token == NULL) {
+      break;
+    }
+    strncpy(ssid, token, 16);
+
+    token = strtok(NULL, ","); // rssi
+    if (token == NULL) {
+      break;
+    }
+    rssi = atoi(token);
+
+    token = strtok(NULL, ","); // frequency
+    if (token == NULL) {
+      break;
+    }
+    frequency = atoi(token);
+
+    if (s_network_info_response_callback != NULL) {
+      s_network_info_response_callback(type, ssid, rssi, frequency);
+    }
+
+    break;
+  }
+
+  case 0x5047: { // PG
+    float ping_ms;
+
+    int ret = sscanf(arr, "$PG,%f", &ping_ms);
+    if (ret != 1) {
+      return false;
+    }
+
+    if (s_ping_response_callback != NULL) {
+      s_ping_response_callback(ping_ms);
+    }
+
+    break;
+  }
 
   default:
     return false;
@@ -285,6 +369,20 @@ bool mw_sbc_report_domain_id(uint8_t id) {
   return s_send_queue(&queue_data);
 }
 
+void mw_sbc_request_network_info(void) {
+  sbc_task_queue_data_t queue_data;
+  queue_data.command = SBC_TASK_COMMAND_REQUEST_NETWORK_INFO;
+
+  s_send_queue(&queue_data);
+}
+
+void mw_sbc_request_ping(void) {
+  sbc_task_queue_data_t queue_data;
+  queue_data.command = SBC_TASK_COMMAND_REQUEST_PING;
+
+  s_send_queue(&queue_data);
+}
+
 void mw_sbc_set_ipv4_change_callback(mw_sbc_ipv4_change_callback callback) {
   s_ipv4_change_callback = callback;
 }
@@ -295,4 +393,12 @@ void mw_sbc_set_connection_change_callback(mw_sbc_connection_change_callback cal
 
 void mw_sbc_set_power_off_request_callback(mw_sbc_power_off_request_callback callback) {
   s_power_off_request_callback = callback;
+}
+
+void mw_sbc_set_network_info_response_callback(mw_sbc_network_info_response_callback callback) {
+  s_network_info_response_callback = callback;
+}
+
+void mw_sbc_set_ping_response_callback(mw_sbc_ping_response_callback callback) {
+  s_ping_response_callback = callback;
 }

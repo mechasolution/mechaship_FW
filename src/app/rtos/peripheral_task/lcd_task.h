@@ -13,6 +13,12 @@ typedef enum {
   LCD_TASK_CTL_MODE_ROS,
 } lcd_task_ctl_mode_t;
 
+typedef enum {
+  LCD_TASK_NETWORK_INFO_NONE,
+  LCD_TASK_NETWORK_INFO_LAN,
+  LCD_TASK_NETWORK_INFO_WLAN,
+} lcd_task_network_info_t;
+
 bool lcd_task_init(void);
 
 bool lcd_task_update_ctl_mode(lcd_task_ctl_mode_t mode);

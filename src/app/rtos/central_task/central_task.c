@@ -255,7 +255,11 @@ static mode_t s_process_mode_change(void) {
 }
 
 static void s_process_switch_short_clicks(uint8_t cnt) {
-  ;
+  if (cnt == 1) {
+    lcd_task_noti_button_clicked();
+  } else if (cnt == 2) {
+    lcd_task_noti_button_dclicked();
+  }
 }
 
 static void s_process_switch(void) {

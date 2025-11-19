@@ -1,5 +1,6 @@
 #include <memory.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <FreeRTOS.h>
 #include <queue.h>
@@ -11,12 +12,15 @@
 
 #include "hal/time/time.h"
 
+#include "sbc/sbc.h"
+
 #include "lcd_task.h"
 
 #define TAG "lcd_task"
 
 typedef enum {
   LCD_MENU_MAIN = 0x00,
+  LCD_MENU_NETWORK,
 
   LCD_MENU_MAX,
 } lcd_menu_t;
@@ -58,6 +62,14 @@ typedef struct {
     uint8_t battery;
     bool battery_changed;
   } main;
+
+  struct { // MENU_NETWORK
+    lcd_task_network_info_t network_type;
+    char ssid[17];
+    int8_t rssi;
+    uint16_t frequency;
+    float ping_ms;
+  } network;
 } lcd_menu_data_t;
 
 typedef struct {
@@ -72,6 +84,8 @@ typedef struct {
     LCD_TASK_COMMAND_THROTTLE,
     LCD_TASK_COMMAND_BAT_STATUS,
     LCD_TASK_COMMAND_POWER_OFF,
+    LCD_TASK_COMMAND_NETWORK_INFO,
+    LCD_TASK_COMMAND_PING,
 
     LCD_TASK_COMMAND_FRAME,
     LCD_TASK_COMMAND_FORCE_REINIT,
@@ -112,6 +126,17 @@ typedef struct {
       bool is_low_power;
     } power_off;
 
+    struct { // LCD_TASK_COMMAND_NETWORK_INFO
+      lcd_task_network_info_t type;
+      char ssid[17];
+      int8_t rssi;
+      uint16_t frequency;
+    } network_info;
+
+    struct { // LCD_TASK_COMMAND_PING
+      float ping_ms;
+    } ping;
+
     struct { // LCD_TASK_COMMAND_FRAME
       uint8_t _;
     } frame;
@@ -146,6 +171,9 @@ static StaticTimer_t s_frame_generation_timer_buff;
 static TimerHandle_t s_info_swap_timer_hd = NULL;
 static StaticTimer_t s_info_swap_timer_buff;
 
+static TimerHandle_t s_network_menu_frequent_job_timer_hd = NULL;
+static StaticTimer_t s_network_menu_frequent_job_timer_buff;
+
 static void s_frame_generation_timer_callback(TimerHandle_t timer_hd) {
   static TickType_t last_force_reinit_tick = 0;
   lcd_task_queue_data_t data;
@@ -164,6 +192,29 @@ static void s_info_swap_timer_callback(TimerHandle_t timer_hd) {
   lcd_task_queue_data_t data;
 
   data.command = LCD_TASK_COMMAND_SWAP_INFO;
+  xQueueSend(s_lcd_task_queue_hd, &data, 0);
+}
+
+static void s_network_menu_frequent_job_timer_callback(TimerHandle_t timer_hd) {
+  mw_sbc_request_network_info();
+}
+
+static void s_network_info_response_callback(mw_sbc_network_status_t type, char *ssid, int8_t rssi, uint16_t frequency) {
+  lcd_task_queue_data_t data = {0};
+  data.command = LCD_TASK_COMMAND_NETWORK_INFO;
+  data.data.network_info.type = type;
+  strncpy(data.data.network_info.ssid, ssid, sizeof(char) * 16);
+  data.data.network_info.rssi = rssi;
+  data.data.network_info.frequency = frequency;
+
+  xQueueSend(s_lcd_task_queue_hd, &data, 0);
+}
+
+static void s_ping_response_callback(float ping_ms) {
+  lcd_task_queue_data_t data = {0};
+  data.command = LCD_TASK_COMMAND_PING;
+  data.data.ping.ping_ms = ping_ms;
+
   xQueueSend(s_lcd_task_queue_hd, &data, 0);
 }
 
@@ -223,9 +274,29 @@ static void s_power_off(void) {
 
 static void s_do_double_click_work(lcd_menu_t current_menu) {
   switch (current_menu) {
+  case LCD_MENU_NETWORK:
+    mw_sbc_request_ping();
+    break;
+
   case LCD_MENU_MAIN:
   case LCD_MENU_MAX:
   default:
+    break;
+  }
+}
+
+static void s_start_menu_task(lcd_menu_t current_menu) {
+  switch (current_menu) {
+  case LCD_MENU_NETWORK:
+    mw_sbc_request_ping();
+    mw_sbc_request_network_info();
+    xTimerStart(s_network_menu_frequent_job_timer_hd, 0);
+    break;
+
+  case LCD_MENU_MAIN:
+  case LCD_MENU_MAX:
+  default:
+    xTimerStop(s_network_menu_frequent_job_timer_hd, 0);
     break;
   }
 }
@@ -249,7 +320,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
       lcd_data->current_menu_changed = false;
       lcd_data->info_swap_changed = true;
 
-      lcd_data->main.ipv4_changed = true;
+      // lcd_data->main.ipv4_changed = true;
       lcd_data->main.usb_connection_changed = true;
       lcd_data->main.control_mode_changed = true;
       lcd_data->main.actuator_power_changed = true;
@@ -416,6 +487,68 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
     break;
 
+  case LCD_MENU_NETWORK:
+    if (lcd_data->main.usb_connection <= USB_CONNECTION_1) {
+      lcd_set_cursor(0, 0);
+      lcd_set_string("Network info ---");
+      lcd_set_cursor(1, 0);
+      lcd_set_string("SBC Disconnected");
+      break;
+    }
+
+    // SSID, IP (swap)
+    {
+      char line_buff[16 + 1] = {0};
+
+      if (lcd_data->info_swap == false && lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_WLAN) { // SSID
+        memcpy(line_buff, lcd_data->network.ssid, 17);
+      } else { // IP
+        if (lcd_data->main.ipv4 == 0) {
+          sprintf(line_buff, "Waiting IP");
+        } else {
+          uint8_t octet1 = (lcd_data->main.ipv4 >> 24) & 0xFF;
+          uint8_t octet2 = (lcd_data->main.ipv4 >> 16) & 0xFF;
+          uint8_t octet3 = (lcd_data->main.ipv4 >> 8) & 0xFF;
+          uint8_t octet4 = lcd_data->main.ipv4 & 0xFF;
+          sprintf(line_buff, "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
+        }
+      }
+
+      for (uint8_t i = 0; i < 17; i++) { // fill blank
+        if (line_buff[i] == 0) {
+          for (uint8_t j = i; j < 17; j++) {
+            line_buff[j] = ' ';
+          }
+          line_buff[17] = 0;
+          break;
+        }
+      }
+
+      lcd_set_cursor(0, 0);
+      lcd_set_string(line_buff);
+    }
+
+    // rssi, frequency (swap)
+    {
+      char line_buff[16 + 1] = {0};
+
+      if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_NONE) {
+        sprintf(line_buff, "NONE    %6.1fms", lcd_data->network.ping_ms);
+      } else if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_LAN) {
+        sprintf(line_buff, "LAN     %6.1fms", lcd_data->network.ping_ms);
+      } else {
+        if (lcd_data->info_swap == false) { // rssi
+          sprintf(line_buff, "%4ddBm %6.1fms", (int)lcd_data->network.rssi, lcd_data->network.ping_ms);
+        } else { // channel
+          sprintf(line_buff, "%4dmHz %6.1fms", (int)lcd_data->network.frequency, lcd_data->network.ping_ms);
+        }
+      }
+
+      lcd_set_cursor(1, 0);
+      lcd_set_string(line_buff);
+    }
+
+    break;
   case LCD_MENU_MAX:
   default:
     break;
@@ -425,12 +558,16 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
 static void s_lcd_task(void *arg) {
   (void)arg;
 
+  mw_sbc_set_network_info_response_callback(s_network_info_response_callback);
+  mw_sbc_set_ping_response_callback(s_ping_response_callback);
+
   lcd_menu_data_t lcd_data = {0};
   lcd_task_queue_data_t lcd_queue_data = {0};
 
   // default
   lcd_data.current_menu = LCD_MENU_MAIN;
   lcd_data.current_menu_changed = true;
+  strcpy(lcd_data.network.ssid, "**LOADING**"); // TODO: 모드 종료 콜백같은걸 만들어서 거기에도 집어넣을것
 
   xTimerStart(s_frame_generation_timer_hd, 0);
   xTimerStart(s_info_swap_timer_hd, 0);
@@ -478,6 +615,17 @@ static void s_lcd_task(void *arg) {
         s_power_off();
         break;
 
+      case LCD_TASK_COMMAND_NETWORK_INFO:
+        lcd_data.network.network_type = lcd_queue_data.data.network_info.type;
+        memcpy(lcd_data.network.ssid, lcd_queue_data.data.network_info.ssid, sizeof(char) * 17);
+        lcd_data.network.rssi = lcd_queue_data.data.network_info.rssi;
+        lcd_data.network.frequency = lcd_queue_data.data.network_info.frequency;
+        break;
+
+      case LCD_TASK_COMMAND_PING:
+        lcd_data.network.ping_ms = lcd_queue_data.data.ping.ping_ms;
+        break;
+
       case LCD_TASK_COMMAND_FRAME:
         s_lcd_update(&lcd_data);
         lcd_next_frame();
@@ -502,10 +650,16 @@ static void s_lcd_task(void *arg) {
         break;
 
       case LCD_TASK_COMMAND_BUTTON_CLICK:
-        if (lcd_data.current_menu++ >= LCD_MENU_MAX) {
+        lcd_data.info_swap = false;
+        lcd_data.info_swap_changed = true;
+        lcd_data.current_menu_changed = true;
+        if (++lcd_data.current_menu >= LCD_MENU_MAX) {
           lcd_data.current_menu = LCD_MENU_MAIN;
         }
-        lcd_data.current_menu_changed = true;
+
+        s_start_menu_task(lcd_data.current_menu);
+        xTimerReset(s_info_swap_timer_hd, 0);
+        lcd_clear();
         break;
 
       case LCD_TASK_COMMAND_BUTTON_DOUBLE_CLICK:
@@ -551,6 +705,14 @@ bool lcd_task_init(void) {
       (void *)0,
       s_info_swap_timer_callback,
       &s_info_swap_timer_buff);
+
+  s_network_menu_frequent_job_timer_hd = xTimerCreateStatic(
+      "network_menu_frequent_job_timer",
+      pdMS_TO_TICKS(500),
+      pdTRUE,
+      (void *)0,
+      s_network_menu_frequent_job_timer_callback,
+      &s_network_menu_frequent_job_timer_buff);
 
   return true;
 }
