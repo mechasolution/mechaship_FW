@@ -94,7 +94,7 @@ static QueueHandle_t s_lcd_task_queue_hd = NULL;
 static uint8_t s_lcd_task_queue_buff[LCD_TASK_QUEUE_LENGTH * LCD_TASK_QUEUE_ITEM_SIZE];
 static StaticQueue_t s_lcd_task_queue_struct;
 
-#define LCD_TASK_SIZE configMINIMAL_STACK_SIZE
+#define LCD_TASK_SIZE 1024
 static TaskHandle_t s_lcd_task_hd = NULL;
 static StackType_t s_lcd_task_buff[LCD_TASK_SIZE];
 static StaticTask_t s_lcd_task_struct;
