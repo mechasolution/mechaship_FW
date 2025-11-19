@@ -28,5 +28,7 @@ void lcd_task_noti_usb_plugged(void);
 void lcd_task_noti_cdc_connected(void);
 void lcd_task_noti_uros_connected(void);
 void lcd_task_noti_uros_disconnected(void);
+void lcd_task_noti_button_clicked(void);
+void lcd_task_noti_button_dclicked(void);
 
 #endif /* EE134825_9CDE_4665_A9A9_F257B86108DB_H_ */

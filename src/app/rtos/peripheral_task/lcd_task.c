@@ -1,3 +1,4 @@
+#include <memory.h>
 #include <stdio.h>
 
 #include <FreeRTOS.h>
@@ -15,12 +16,49 @@
 #define TAG "lcd_task"
 
 typedef enum {
-  SYSTEM_STATUS_0, // USB 연결 X
-  SYSTEM_STATUS_1, // USB 연결 O
-  SYSTEM_STATUS_2, // CDC 연결됨
-  SYSTEM_STATUS_3, // UROS 연결됨
-  SYSTEM_STATUS_4, // UROS 연결 해제됨
-} system_status_t;
+  LCD_MENU_MAIN = 0x00,
+
+  LCD_MENU_MAX,
+} lcd_menu_t;
+
+typedef enum {
+  USB_CONNECTION_0, // USB 연결 X
+  USB_CONNECTION_1, // USB 연결 O
+  USB_CONNECTION_2, // CDC 연결됨
+  USB_CONNECTION_3, // UROS 연결됨
+  USB_CONNECTION_4, // UROS 연결 해제됨
+} usb_connection_t;
+
+typedef struct {
+  lcd_menu_t current_menu;
+  bool current_menu_changed;
+
+  bool info_swap; // 디스플레이 좁아서 n초 간격으로 정보 바꿈, 이때 사용함
+  bool info_swap_changed;
+
+  struct { // MENU_MAIN
+    uint32_t ipv4;
+    bool ipv4_changed;
+
+    usb_connection_t usb_connection;
+    bool usb_connection_changed;
+
+    lcd_task_ctl_mode_t control_mode;
+    bool control_mode_changed;
+
+    bool actuator_power;
+    bool actuator_power_changed;
+
+    int8_t throttle;
+    bool throttle_changed;
+
+    uint8_t key;
+    bool key_changed;
+
+    uint8_t battery;
+    bool battery_changed;
+  } main;
+} lcd_menu_data_t;
 
 typedef struct {
   enum {
@@ -37,8 +75,11 @@ typedef struct {
 
     LCD_TASK_COMMAND_FRAME,
     LCD_TASK_COMMAND_FORCE_REINIT,
-    LCD_TASK_COMMAND_UPDATE_SYSTEM_STATUS,
-    LCD_TASK_COMMAND_CHANGE_MAIN_INFO,
+    LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS,
+    LCD_TASK_COMMAND_SWAP_INFO,
+
+    LCD_TASK_COMMAND_BUTTON_CLICK,
+    LCD_TASK_COMMAND_BUTTON_DOUBLE_CLICK,
   } command;
   union {
 
@@ -79,11 +120,11 @@ typedef struct {
       uint8_t _;
     } force_reinit;
 
-    struct { // LCD_TASK_COMMAND_UPDATE_SYSTEM_STATUS
-      system_status_t status;
-    } update_system_status;
+    struct { // LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS
+      usb_connection_t status;
+    } update_usb_connection_status;
 
-    struct { // LCD_TASK_COMMAND_CHANGE_MAIN_INFO
+    struct { // LCD_TASK_COMMAND_SWAP_INFO
       uint8_t _;
     } change_main_info;
   } data;
@@ -102,8 +143,8 @@ static StaticTask_t s_lcd_task_struct;
 static TimerHandle_t s_frame_generation_timer_hd = NULL;
 static StaticTimer_t s_frame_generation_timer_buff;
 
-static TimerHandle_t s_info_screen_toggle_timer_hd = NULL;
-static StaticTimer_t s_info_screen_toggle_timer_buff;
+static TimerHandle_t s_info_swap_timer_hd = NULL;
+static StaticTimer_t s_info_swap_timer_buff;
 
 static void s_frame_generation_timer_callback(TimerHandle_t timer_hd) {
   static TickType_t last_force_reinit_tick = 0;
@@ -119,10 +160,10 @@ static void s_frame_generation_timer_callback(TimerHandle_t timer_hd) {
   xQueueSend(s_lcd_task_queue_hd, &data, 0);
 }
 
-static void s_info_screen_toggle_timer_callback(TimerHandle_t timer_hd) {
+static void s_info_swap_timer_callback(TimerHandle_t timer_hd) {
   lcd_task_queue_data_t data;
 
-  data.command = LCD_TASK_COMMAND_CHANGE_MAIN_INFO;
+  data.command = LCD_TASK_COMMAND_SWAP_INFO;
   xQueueSend(s_lcd_task_queue_hd, &data, 0);
 }
 
@@ -136,7 +177,7 @@ static void s_power_off(void) {
   lcd_task_queue_data_t lcd_queue_data = {0};
   char line_buff[16 + 1];
 
-  xTimerStop(s_info_screen_toggle_timer_hd, 0); // turn off info_screen_toggle_timer
+  xTimerStop(s_info_swap_timer_hd, 0); // turn off info_swap_timer
 
   for (;;) {
     if (xQueueReceive(s_lcd_task_queue_hd, &lcd_queue_data, portMAX_DELAY) == pdTRUE) {
@@ -180,84 +221,256 @@ static void s_power_off(void) {
   }
 }
 
+static void s_do_double_click_work(lcd_menu_t current_menu) {
+  switch (current_menu) {
+  case LCD_MENU_MAIN:
+  case LCD_MENU_MAX:
+  default:
+    break;
+  }
+}
+
+static void s_lcd_update(lcd_menu_data_t *lcd_data) {
+  switch (lcd_data->current_menu) {
+  case LCD_MENU_MAIN:
+    // 주요 정보 변경 처리 (swap 화면의 주요 정보 바뀌면 강제로 swap 발생+swap 트리거 타이머 초기화)
+    if (lcd_data->main.usb_connection_changed == true) { // USB 연결상태 변화 처리가 우선순위 높음
+      lcd_data->info_swap = false;
+      lcd_data->info_swap_changed = true;
+      xTimerReset(s_info_swap_timer_hd, 0);
+    } else if (lcd_data->main.ipv4_changed == true) {
+      lcd_data->info_swap = true;
+      lcd_data->info_swap_changed = true;
+      xTimerReset(s_info_swap_timer_hd, 0);
+    }
+
+    // 메뉴 변경 처리
+    if (lcd_data->current_menu_changed == true) {
+      lcd_data->current_menu_changed = false;
+      lcd_data->info_swap_changed = true;
+
+      lcd_data->main.ipv4_changed = true;
+      lcd_data->main.usb_connection_changed = true;
+      lcd_data->main.control_mode_changed = true;
+      lcd_data->main.actuator_power_changed = true;
+      lcd_data->main.throttle_changed = true;
+      lcd_data->main.key_changed = true;
+      lcd_data->main.battery_changed = true;
+    }
+
+    // swap 처리
+    if (lcd_data->info_swap_changed == true) {
+      lcd_data->info_swap_changed = false;
+
+      if (lcd_data->info_swap == false) {
+        lcd_data->main.usb_connection_changed = true;
+      } else {
+        lcd_data->main.ipv4_changed = true;
+      }
+    }
+
+    // 연결 상태 표시 (swap==false)
+    if (lcd_data->main.usb_connection_changed && lcd_data->info_swap == false) {
+      lcd_data->main.usb_connection_changed = false;
+      char line_buff[16 + 1] = {0};
+
+      switch (lcd_data->main.usb_connection) {
+      case USB_CONNECTION_0:
+        sprintf(line_buff, "Disconnected   ");
+        break;
+
+      case USB_CONNECTION_1:
+        sprintf(line_buff, "USB Connected  ");
+        break;
+
+      case USB_CONNECTION_2:
+        sprintf(line_buff, "SBC Connected  ");
+        break;
+
+      case USB_CONNECTION_3:
+        sprintf(line_buff, "UROS Connected ");
+        break;
+
+      case USB_CONNECTION_4:
+        sprintf(line_buff, "SBC Connected  ");
+        break;
+
+      default:
+        sprintf(line_buff, "               ");
+        break;
+      }
+
+      lcd_set_cursor(0, 0);
+      lcd_set_string(line_buff);
+    }
+
+    // IP 주소 표시 (swap==true && usb usb_connection >= USB_CONNECTION_2)
+    if (lcd_data->main.ipv4_changed &&
+        lcd_data->info_swap == true && lcd_data->main.usb_connection >= USB_CONNECTION_2) {
+      lcd_data->main.ipv4_changed = false;
+      char line_buff[16 + 1] = {0};
+
+      if (lcd_data->main.ipv4 == 0) {
+        sprintf(line_buff, "Waiting IP     ");
+      } else {
+        uint8_t octet1 = (lcd_data->main.ipv4 >> 24) & 0xFF;
+        uint8_t octet2 = (lcd_data->main.ipv4 >> 16) & 0xFF;
+        uint8_t octet3 = (lcd_data->main.ipv4 >> 8) & 0xFF;
+        uint8_t octet4 = lcd_data->main.ipv4 & 0xFF;
+        sprintf(line_buff, "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
+      }
+      for (uint8_t i = 0; i < 15; i++) { // fill blank
+        if (line_buff[i] == 0) {
+          for (uint8_t j = i; j < 15; j++) {
+            line_buff[j] = ' ';
+          }
+          line_buff[15] = 0;
+          break;
+        }
+      }
+
+      lcd_set_cursor(0, 0);
+      lcd_set_string(line_buff);
+    }
+
+    // control mode 처리
+    if (lcd_data->main.control_mode_changed == true) {
+      lcd_data->main.control_mode_changed = false;
+      char c;
+
+      switch (lcd_data->main.control_mode) {
+      case LCD_TASK_CTL_MODE_NONE:
+        c = '-';
+        break;
+
+      case LCD_TASK_CTL_MODE_RC:
+        c = 'M';
+        break;
+
+      case LCD_TASK_CTL_MODE_ROS:
+        c = 'A';
+        break;
+
+      default:
+        break;
+      }
+
+      lcd_set_cursor(0, 15);
+      lcd_set_char(c);
+    }
+
+    // actuator off 처리
+    if (lcd_data->main.actuator_power_changed == true) {
+      lcd_data->main.actuator_power_changed = false;
+
+      if (lcd_data->main.actuator_power == false) {
+        lcd_set_cursor(1, 0);
+        lcd_set_string("ACT OFF     ");
+      }
+    }
+
+    // 쓰러스터 처리 (actuator on)
+    if (lcd_data->main.throttle_changed == true &&
+        lcd_data->main.actuator_power == true) {
+      lcd_data->main.throttle_changed = false;
+      char line_buff[16 + 1] = {0};
+
+      if (lcd_data->main.throttle == 0) {
+        sprintf(line_buff, "T OFF");
+      } else if (lcd_data->main.throttle > 0) {
+        sprintf(line_buff, "T+%3d", lcd_data->main.throttle);
+      } else {
+        lcd_data->main.throttle *= -1;
+        sprintf(line_buff, "T-%3d", lcd_data->main.throttle);
+      }
+
+      lcd_set_cursor(1, 0);
+      for (uint8_t i = 0; i < 5; i++) {
+        lcd_set_char(line_buff[i]);
+      }
+    }
+
+    // 키 처리 (actuator on)
+    if (lcd_data->main.key_changed == true &&
+        lcd_data->main.actuator_power == true) {
+      lcd_data->main.key_changed = false;
+      char line_buff[16 + 1] = {0};
+
+      sprintf(line_buff + 5, " K%3d  ", lcd_data->main.key);
+
+      lcd_set_cursor(1, 5);
+      for (uint8_t i = 5; i < 12; i++) {
+        lcd_set_char(line_buff[i]);
+      }
+    }
+
+    // 배터리 처리
+    if (lcd_data->main.battery_changed == true) {
+      lcd_data->main.battery_changed = false;
+      char line_buff[16 + 1] = {0};
+
+      sprintf(line_buff, "B%3d", lcd_data->main.battery);
+
+      lcd_set_cursor(1, 12);
+      lcd_set_string(line_buff);
+    }
+    break;
+
+  case LCD_MENU_MAX:
+  default:
+    break;
+  }
+}
+
 static void s_lcd_task(void *arg) {
   (void)arg;
 
+  lcd_menu_data_t lcd_data = {0};
   lcd_task_queue_data_t lcd_queue_data = {0};
-  system_status_t system_status = SYSTEM_STATUS_0;
-  bool status_ui_toggle = false; // true: ip 보여줌
-  uint32_t ip_addr = 0;
-  char line_buff[16 + 1];
 
-  lcd_set_cursor(0, 0);
-  lcd_set_string("Disconnected    ");
-  lcd_set_cursor(1, 0);
-  lcd_set_string("ACT OFF     B   ");
+  // default
+  lcd_data.current_menu = LCD_MENU_MAIN;
+  lcd_data.current_menu_changed = true;
 
   xTimerStart(s_frame_generation_timer_hd, 0);
-  xTimerStart(s_info_screen_toggle_timer_hd, 0);
+  xTimerStart(s_info_swap_timer_hd, 0);
 
   for (;;) {
     if (xQueueReceive(s_lcd_task_queue_hd, &lcd_queue_data, portMAX_DELAY) == pdTRUE) {
       switch (lcd_queue_data.command) {
       case LCD_TASK_COMMAND_CTL_MODE:
-        lcd_set_cursor(0, 15);
-        if (lcd_queue_data.data.ctl_mode.mode == LCD_TASK_CTL_MODE_RC) {
-          lcd_set_char('M');
-        } else if (lcd_queue_data.data.ctl_mode.mode == LCD_TASK_CTL_MODE_ROS) {
-          lcd_set_char('A');
-        } else {
-          lcd_set_char('-');
-        }
+        lcd_data.main.control_mode = lcd_queue_data.data.ctl_mode.mode;
+        lcd_data.main.control_mode_changed = true;
+        break;
+
+      case LCD_TASK_COMMAND_CONNECTION:
+        lcd_data.main.usb_connection = lcd_queue_data.data.update_usb_connection_status.status;
+        lcd_data.main.usb_connection_changed = true;
         break;
 
       case LCD_TASK_COMMAND_ACT_POWER:
-        if (lcd_queue_data.data.act_power.status) {
-          ;
-        } else {
-          lcd_set_cursor(1, 0);
-          lcd_set_string("ACT OFF     ");
-        }
+        lcd_data.main.actuator_power = lcd_queue_data.data.act_power.status;
+        lcd_data.main.actuator_power_changed = true;
         break;
 
       case LCD_TASK_COMMAND_IP_ADDR:
-        ip_addr = lcd_queue_data.data.ip_addr.ipv4;
-
-        status_ui_toggle = true;
-
-        lcd_queue_data.command = LCD_TASK_COMMAND_CHANGE_MAIN_INFO;
-        xQueueSendToFront(s_lcd_task_queue_hd, &lcd_queue_data, 0); // force update main info
-        xTimerReset(s_info_screen_toggle_timer_hd, 0);
+        lcd_data.main.ipv4 = lcd_queue_data.data.ip_addr.ipv4;
+        lcd_data.main.ipv4_changed = true;
         break;
 
       case LCD_TASK_COMMAND_KEY:
-        sprintf(line_buff + 5, " K%3d  ", lcd_queue_data.data.key.degree);
-        lcd_set_cursor(1, 5);
-        for (uint8_t i = 5; i < 12; i++) {
-          lcd_set_char(line_buff[i]);
-        }
+        lcd_data.main.key = lcd_queue_data.data.key.degree;
+        lcd_data.main.key_changed = true;
         break;
 
       case LCD_TASK_COMMAND_THROTTLE:
-        if (lcd_queue_data.data.throttle.percentage == 0) {
-          sprintf(line_buff, "T OFF");
-        } else if (lcd_queue_data.data.throttle.percentage > 0) {
-          sprintf(line_buff, "T+%3d", lcd_queue_data.data.throttle.percentage);
-        } else {
-          lcd_queue_data.data.throttle.percentage *= -1;
-          sprintf(line_buff, "T-%3d", lcd_queue_data.data.throttle.percentage);
-        }
-        lcd_set_cursor(1, 0);
-        for (uint8_t i = 0; i < 5; i++) {
-          lcd_set_char(line_buff[i]);
-        }
+        lcd_data.main.throttle = lcd_queue_data.data.throttle.percentage;
+        lcd_data.main.throttle_changed = true;
         break;
 
       case LCD_TASK_COMMAND_BAT_STATUS:
-        sprintf(line_buff, "B%3d",
-                lcd_queue_data.data.bat_status.value);
-        lcd_set_cursor(1, 12);
-        lcd_set_string(line_buff);
+        lcd_data.main.battery = lcd_queue_data.data.bat_status.value;
+        lcd_data.main.battery_changed = true;
         break;
 
       case LCD_TASK_COMMAND_POWER_OFF:
@@ -266,64 +479,37 @@ static void s_lcd_task(void *arg) {
         break;
 
       case LCD_TASK_COMMAND_FRAME:
+        s_lcd_update(&lcd_data);
         lcd_next_frame();
         break;
 
       case LCD_TASK_COMMAND_FORCE_REINIT:
+        s_lcd_update(&lcd_data);
         lcd_reinit_device();
         break;
 
-      case LCD_TASK_COMMAND_UPDATE_SYSTEM_STATUS:
-        if (lcd_queue_data.data.update_system_status.status == SYSTEM_STATUS_4) {
-          if (system_status == SYSTEM_STATUS_3) {
-            lcd_queue_data.data.update_system_status.status = SYSTEM_STATUS_2;
-          }
-        }
-
-        status_ui_toggle = false;
-        system_status = lcd_queue_data.data.update_system_status.status;
-
-        lcd_queue_data.command = LCD_TASK_COMMAND_CHANGE_MAIN_INFO;
-        xQueueSendToFront(s_lcd_task_queue_hd, &lcd_queue_data, 0); // force update main info
-        xTimerReset(s_info_screen_toggle_timer_hd, 0);
+      case LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS:
+        // if (lcd_queue_data.data.update_usb_connection_status.status == USB_CONNECTION_4 && lcd_data.main.usb_connection == USB_CONNECTION_3) { // TODO: 없어도 괜찮을듯. 테스트해볼것.
+        //   lcd_queue_data.data.update_usb_connection_status.status = USB_CONNECTION_2;
+        // }
+        lcd_data.main.usb_connection = lcd_queue_data.data.update_usb_connection_status.status;
+        lcd_data.main.usb_connection_changed = true;
         break;
 
-      case LCD_TASK_COMMAND_CHANGE_MAIN_INFO:
-        lcd_set_cursor(0, 0);
-        if (system_status == SYSTEM_STATUS_0) { // USB Unplugged
-          lcd_set_string("Disconnected   ");
-        } else if (system_status == SYSTEM_STATUS_1) { // USB Pluged to watever PC
-          lcd_set_string("USB Connected  ");
-        } else if (status_ui_toggle == true) {
-          status_ui_toggle = !status_ui_toggle;
-          if (ip_addr == 0) {
-            sprintf(line_buff, "Waiting IP     ");
-          } else {
-            uint8_t octet1 = (ip_addr >> 24) & 0xFF;
-            uint8_t octet2 = (ip_addr >> 16) & 0xFF;
-            uint8_t octet3 = (ip_addr >> 8) & 0xFF;
-            uint8_t octet4 = ip_addr & 0xFF;
+      case LCD_TASK_COMMAND_SWAP_INFO:
+        lcd_data.info_swap = !lcd_data.info_swap;
+        lcd_data.info_swap_changed = true;
+        break;
 
-            sprintf(line_buff, "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
-            for (uint8_t i = 0; i < 15; i++) { // fill blank
-              if (line_buff[i] == 0) {
-                for (uint8_t j = i; j < 15; j++) {
-                  line_buff[j] = ' ';
-                }
-                line_buff[15] = 0;
-                break;
-              }
-            }
-          }
-          lcd_set_string(line_buff);
-        } else {
-          status_ui_toggle = !status_ui_toggle;
-          if (system_status == SYSTEM_STATUS_2) {
-            lcd_set_string("SBC Connected  ");
-          } else if (system_status == SYSTEM_STATUS_3) {
-            lcd_set_string("UROS Connected ");
-          }
+      case LCD_TASK_COMMAND_BUTTON_CLICK:
+        if (lcd_data.current_menu++ >= LCD_MENU_MAX) {
+          lcd_data.current_menu = LCD_MENU_MAIN;
         }
+        lcd_data.current_menu_changed = true;
+        break;
+
+      case LCD_TASK_COMMAND_BUTTON_DOUBLE_CLICK:
+        s_do_double_click_work(lcd_data.current_menu);
         break;
 
       case LCD_TASK_COMMAND_NONE:
@@ -358,13 +544,13 @@ bool lcd_task_init(void) {
       s_frame_generation_timer_callback,
       &s_frame_generation_timer_buff);
 
-  s_info_screen_toggle_timer_hd = xTimerCreateStatic(
-      "info_screen_toggle_timer",
+  s_info_swap_timer_hd = xTimerCreateStatic(
+      "info_swap_timer",
       pdMS_TO_TICKS(2000),
       pdTRUE,
       (void *)0,
-      s_info_screen_toggle_timer_callback,
-      &s_info_screen_toggle_timer_buff);
+      s_info_swap_timer_callback,
+      &s_info_swap_timer_buff);
 
   return true;
 }
@@ -436,40 +622,54 @@ bool lcd_task_update_power_off(uint8_t countdown, bool is_low_power) {
 
 void lcd_task_noti_usb_unplugged(void) {
   lcd_task_queue_data_t queue_data;
-  queue_data.command = LCD_TASK_COMMAND_UPDATE_SYSTEM_STATUS;
-  queue_data.data.update_system_status.status = SYSTEM_STATUS_0;
+  queue_data.command = LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS;
+  queue_data.data.update_usb_connection_status.status = USB_CONNECTION_0;
 
   s_send_queue(&queue_data);
 }
 
 void lcd_task_noti_usb_plugged(void) {
   lcd_task_queue_data_t queue_data;
-  queue_data.command = LCD_TASK_COMMAND_UPDATE_SYSTEM_STATUS;
-  queue_data.data.update_system_status.status = SYSTEM_STATUS_1;
+  queue_data.command = LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS;
+  queue_data.data.update_usb_connection_status.status = USB_CONNECTION_1;
 
   s_send_queue(&queue_data);
 }
 
 void lcd_task_noti_cdc_connected(void) {
   lcd_task_queue_data_t queue_data;
-  queue_data.command = LCD_TASK_COMMAND_UPDATE_SYSTEM_STATUS;
-  queue_data.data.update_system_status.status = SYSTEM_STATUS_2;
+  queue_data.command = LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS;
+  queue_data.data.update_usb_connection_status.status = USB_CONNECTION_2;
 
   s_send_queue(&queue_data);
 }
 
 void lcd_task_noti_uros_connected(void) {
   lcd_task_queue_data_t queue_data;
-  queue_data.command = LCD_TASK_COMMAND_UPDATE_SYSTEM_STATUS;
-  queue_data.data.update_system_status.status = SYSTEM_STATUS_3;
+  queue_data.command = LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS;
+  queue_data.data.update_usb_connection_status.status = USB_CONNECTION_3;
 
   s_send_queue(&queue_data);
 }
 
 void lcd_task_noti_uros_disconnected(void) {
   lcd_task_queue_data_t queue_data;
-  queue_data.command = LCD_TASK_COMMAND_UPDATE_SYSTEM_STATUS;
-  queue_data.data.update_system_status.status = SYSTEM_STATUS_4;
+  queue_data.command = LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS;
+  queue_data.data.update_usb_connection_status.status = USB_CONNECTION_4;
+
+  s_send_queue(&queue_data);
+}
+
+void lcd_task_noti_button_clicked(void) {
+  lcd_task_queue_data_t queue_data;
+  queue_data.command = LCD_TASK_COMMAND_BUTTON_CLICK;
+
+  s_send_queue(&queue_data);
+}
+
+void lcd_task_noti_button_dclicked(void) {
+  lcd_task_queue_data_t queue_data;
+  queue_data.command = LCD_TASK_COMMAND_BUTTON_DOUBLE_CLICK;
 
   s_send_queue(&queue_data);
 }
