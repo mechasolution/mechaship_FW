@@ -311,9 +311,6 @@ static void s_process_low_freq_task(void) {
     s_power_off(true);
   }
 
-  // update lcd
-  lcd_task_update_battery((uint8_t)percentage);
-
   // update sbc
   mw_sbc_report_battery_info(voltage, percentage);
 }

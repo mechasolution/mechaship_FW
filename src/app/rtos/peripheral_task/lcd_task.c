@@ -7,6 +7,7 @@
 #include <task.h>
 #include <timers.h>
 
+#include "driver/battery/battery.h"
 #include "driver/lcd/lcd.h"
 #include "driver/log/log.h"
 
@@ -52,8 +53,6 @@ typedef struct {
     int8_t throttle;
 
     uint8_t key;
-
-    uint8_t battery;
   } main;
 
   struct { // MENU_NETWORK
@@ -75,7 +74,6 @@ typedef struct {
     LCD_TASK_COMMAND_IP_ADDR,
     LCD_TASK_COMMAND_KEY,
     LCD_TASK_COMMAND_THROTTLE,
-    LCD_TASK_COMMAND_BAT_STATUS,
     LCD_TASK_COMMAND_POWER_OFF,
     LCD_TASK_COMMAND_NETWORK_INFO,
     LCD_TASK_COMMAND_PING,
@@ -109,10 +107,6 @@ typedef struct {
     struct { // LCD_TASK_COMMAND_THROTTLE
       int8_t percentage;
     } throttle;
-
-    struct { // LCD_TASK_COMMAND_BAT_STATUS
-      uint8_t value;
-    } bat_status;
 
     struct { // LCD_TASK_COMMAND_POWER_OFF
       uint8_t countdown;
@@ -439,7 +433,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     {
       char line_buff[16 + 1] = {0};
 
-      sprintf(line_buff, "B%3d", lcd_data->main.battery);
+      sprintf(line_buff, "B%3d", (int)battery_get_percentage());
 
       lcd_set_cursor(1, 12);
       lcd_set_string(line_buff);
@@ -557,10 +551,6 @@ static void s_lcd_task(void *arg) {
 
       case LCD_TASK_COMMAND_THROTTLE:
         lcd_data.main.throttle = lcd_queue_data.data.throttle.percentage;
-        break;
-
-      case LCD_TASK_COMMAND_BAT_STATUS:
-        lcd_data.main.battery = lcd_queue_data.data.bat_status.value;
         break;
 
       case LCD_TASK_COMMAND_POWER_OFF:
@@ -696,7 +686,7 @@ bool lcd_task_update_ip_addr(uint32_t ipv4) {
   return s_send_queue(&queue_data);
 }
 
-bool lcd_task_update_throttle(int8_t percentage) {
+bool lcd_task_update_throttle(int8_t percentage) { // TODO: app 레이어끼리 데이터 교환하지 말고 드라이버 직접 호출; 드라이버단에 접근제어 필요+드라이버 호출한 상태에서 task suspend되지 않게 주의 필요(Graceful task 종료 구현 필요)
   lcd_task_queue_data_t queue_data;
   queue_data.command = LCD_TASK_COMMAND_THROTTLE;
   queue_data.data.throttle.percentage = percentage;
@@ -708,14 +698,6 @@ bool lcd_task_update_key(uint8_t degree) {
   lcd_task_queue_data_t queue_data;
   queue_data.command = LCD_TASK_COMMAND_KEY;
   queue_data.data.key.degree = degree;
-
-  return s_send_queue(&queue_data);
-}
-
-bool lcd_task_update_battery(uint8_t percentage) {
-  lcd_task_queue_data_t queue_data;
-  queue_data.command = LCD_TASK_COMMAND_BAT_STATUS;
-  queue_data.data.bat_status.value = percentage;
 
   return s_send_queue(&queue_data);
 }

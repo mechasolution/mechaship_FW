@@ -26,7 +26,6 @@ bool lcd_task_update_actuator_power(bool status);
 bool lcd_task_update_ip_addr(uint32_t ipv4);
 bool lcd_task_update_throttle(int8_t percentage);
 bool lcd_task_update_key(uint8_t degree);
-bool lcd_task_update_battery(uint8_t percentage);
 bool lcd_task_update_power_off(uint8_t countdown, bool is_low_power);
 
 void lcd_task_noti_usb_unplugged(void);
