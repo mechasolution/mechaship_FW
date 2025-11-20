@@ -274,11 +274,31 @@ static void s_do_double_click_work(lcd_menu_t current_menu) {
 }
 
 static void s_start_menu_task(lcd_menu_t current_menu) {
+  lcd_clear();
+
   switch (current_menu) {
   case LCD_MENU_NETWORK:
+    lcd_set_cursor(0, 0);
+    lcd_set_string("Network info ---");
+    lcd_next_frame();
+
+    xTimerStop(s_frame_generation_timer_hd, 0);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    xTimerStart(s_frame_generation_timer_hd, 0);
+
     mw_sbc_request_ping();
     mw_sbc_request_network_info();
     xTimerStart(s_network_menu_frequent_job_timer_hd, 0);
+    break;
+
+  case LCD_MENU_BATTERY:
+    lcd_set_cursor(0, 0);
+    lcd_set_string("Battery info ---");
+    lcd_next_frame();
+
+    xTimerStop(s_frame_generation_timer_hd, 0);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    xTimerStart(s_frame_generation_timer_hd, 0);
     break;
 
   case LCD_MENU_MAIN:
@@ -620,7 +640,6 @@ static void s_lcd_task(void *arg) {
 
         s_start_menu_task(lcd_data.current_menu);
         xTimerReset(s_info_swap_timer_hd, 0);
-        lcd_clear();
         break;
 
       case LCD_TASK_COMMAND_BUTTON_DOUBLE_CLICK:
