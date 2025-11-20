@@ -35,32 +35,25 @@ typedef enum {
 
 typedef struct {
   lcd_menu_t current_menu;
-  bool current_menu_changed;
 
   bool info_swap; // 디스플레이 좁아서 n초 간격으로 정보 바꿈, 이때 사용함
-  bool info_swap_changed;
 
   struct { // MENU_MAIN
     uint32_t ipv4;
-    bool ipv4_changed;
+    bool ipv4_changed; // swap 주요 정보 - swap 강제로 발생시키는 용도로 사용
 
     usb_connection_t usb_connection;
-    bool usb_connection_changed;
+    bool usb_connection_changed; // swap 주요 정보
 
     lcd_task_ctl_mode_t control_mode;
-    bool control_mode_changed;
 
     bool actuator_power;
-    bool actuator_power_changed;
 
     int8_t throttle;
-    bool throttle_changed;
 
     uint8_t key;
-    bool key_changed;
 
     uint8_t battery;
-    bool battery_changed;
   } main;
 
   struct { // MENU_NETWORK
@@ -306,43 +299,19 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
   case LCD_MENU_MAIN:
     // 주요 정보 변경 처리 (swap 화면의 주요 정보 바뀌면 강제로 swap 발생+swap 트리거 타이머 초기화)
     if (lcd_data->main.usb_connection_changed == true) { // USB 연결상태 변화 처리가 우선순위 높음
+      lcd_data->main.usb_connection_changed = false;
+
       lcd_data->info_swap = false;
-      lcd_data->info_swap_changed = true;
       xTimerReset(s_info_swap_timer_hd, 0);
     } else if (lcd_data->main.ipv4_changed == true) {
+
+      lcd_data->main.ipv4_changed = false;
       lcd_data->info_swap = true;
-      lcd_data->info_swap_changed = true;
       xTimerReset(s_info_swap_timer_hd, 0);
-    }
-
-    // 메뉴 변경 처리
-    if (lcd_data->current_menu_changed == true) {
-      lcd_data->current_menu_changed = false;
-      lcd_data->info_swap_changed = true;
-
-      // lcd_data->main.ipv4_changed = true;
-      lcd_data->main.usb_connection_changed = true;
-      lcd_data->main.control_mode_changed = true;
-      lcd_data->main.actuator_power_changed = true;
-      lcd_data->main.throttle_changed = true;
-      lcd_data->main.key_changed = true;
-      lcd_data->main.battery_changed = true;
-    }
-
-    // swap 처리
-    if (lcd_data->info_swap_changed == true) {
-      lcd_data->info_swap_changed = false;
-
-      if (lcd_data->info_swap == false) {
-        lcd_data->main.usb_connection_changed = true;
-      } else {
-        lcd_data->main.ipv4_changed = true;
-      }
     }
 
     // 연결 상태 표시 (swap==false)
-    if (lcd_data->main.usb_connection_changed == true && lcd_data->info_swap == false) {
-      lcd_data->main.usb_connection_changed = false;
+    if (lcd_data->info_swap == false) {
       char line_buff[16 + 1] = {0};
 
       switch (lcd_data->main.usb_connection) {
@@ -376,9 +345,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     // IP 주소 표시 (swap==true && usb usb_connection >= USB_CONNECTION_2)
-    if (lcd_data->main.ipv4_changed == true &&
-        lcd_data->info_swap == true && lcd_data->main.usb_connection >= USB_CONNECTION_2) {
-      lcd_data->main.ipv4_changed = false;
+    if (lcd_data->info_swap == true && lcd_data->main.usb_connection >= USB_CONNECTION_2) {
       char line_buff[16 + 1] = {0};
 
       if (lcd_data->main.ipv4 == 0) {
@@ -405,8 +372,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     // control mode 처리
-    if (lcd_data->main.control_mode_changed == true) {
-      lcd_data->main.control_mode_changed = false;
+    {
       char c;
 
       switch (lcd_data->main.control_mode) {
@@ -431,9 +397,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     // actuator off 처리
-    if (lcd_data->main.actuator_power_changed == true) {
-      lcd_data->main.actuator_power_changed = false;
-
+    {
       if (lcd_data->main.actuator_power == false) {
         lcd_set_cursor(1, 0);
         lcd_set_string("ACT OFF     ");
@@ -441,9 +405,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     // 쓰러스터 처리 (actuator on)
-    if (lcd_data->main.throttle_changed == true &&
-        lcd_data->main.actuator_power == true) {
-      lcd_data->main.throttle_changed = false;
+    if (lcd_data->main.actuator_power == true) {
       char line_buff[16 + 1] = {0};
 
       if (lcd_data->main.throttle == 0) {
@@ -462,9 +424,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     // 키 처리 (actuator on)
-    if (lcd_data->main.key_changed == true &&
-        lcd_data->main.actuator_power == true) {
-      lcd_data->main.key_changed = false;
+    if (lcd_data->main.actuator_power == true) {
       char line_buff[16 + 1] = {0};
 
       sprintf(line_buff + 5, " K%3d  ", lcd_data->main.key);
@@ -476,8 +436,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     // 배터리 처리
-    if (lcd_data->main.battery_changed == true) {
-      lcd_data->main.battery_changed = false;
+    {
       char line_buff[16 + 1] = {0};
 
       sprintf(line_buff, "B%3d", lcd_data->main.battery);
@@ -566,7 +525,6 @@ static void s_lcd_task(void *arg) {
 
   // default
   lcd_data.current_menu = LCD_MENU_MAIN;
-  lcd_data.current_menu_changed = true;
   strcpy(lcd_data.network.ssid, "**LOADING**"); // TODO: 모드 종료 콜백같은걸 만들어서 거기에도 집어넣을것
 
   xTimerStart(s_frame_generation_timer_hd, 0);
@@ -577,7 +535,6 @@ static void s_lcd_task(void *arg) {
       switch (lcd_queue_data.command) {
       case LCD_TASK_COMMAND_CTL_MODE:
         lcd_data.main.control_mode = lcd_queue_data.data.ctl_mode.mode;
-        lcd_data.main.control_mode_changed = true;
         break;
 
       case LCD_TASK_COMMAND_CONNECTION:
@@ -587,7 +544,6 @@ static void s_lcd_task(void *arg) {
 
       case LCD_TASK_COMMAND_ACT_POWER:
         lcd_data.main.actuator_power = lcd_queue_data.data.act_power.status;
-        lcd_data.main.actuator_power_changed = true;
         break;
 
       case LCD_TASK_COMMAND_IP_ADDR:
@@ -597,17 +553,14 @@ static void s_lcd_task(void *arg) {
 
       case LCD_TASK_COMMAND_KEY:
         lcd_data.main.key = lcd_queue_data.data.key.degree;
-        lcd_data.main.key_changed = true;
         break;
 
       case LCD_TASK_COMMAND_THROTTLE:
         lcd_data.main.throttle = lcd_queue_data.data.throttle.percentage;
-        lcd_data.main.throttle_changed = true;
         break;
 
       case LCD_TASK_COMMAND_BAT_STATUS:
         lcd_data.main.battery = lcd_queue_data.data.bat_status.value;
-        lcd_data.main.battery_changed = true;
         break;
 
       case LCD_TASK_COMMAND_POWER_OFF:
@@ -646,13 +599,10 @@ static void s_lcd_task(void *arg) {
 
       case LCD_TASK_COMMAND_SWAP_INFO:
         lcd_data.info_swap = !lcd_data.info_swap;
-        lcd_data.info_swap_changed = true;
         break;
 
       case LCD_TASK_COMMAND_BUTTON_CLICK:
         lcd_data.info_swap = false;
-        lcd_data.info_swap_changed = true;
-        lcd_data.current_menu_changed = true;
         if (++lcd_data.current_menu >= LCD_MENU_MAX) {
           lcd_data.current_menu = LCD_MENU_MAIN;
         }
