@@ -22,6 +22,7 @@
 typedef enum {
   LCD_MENU_MAIN = 0x00,
   LCD_MENU_NETWORK,
+  LCD_MENU_BATTERY,
 
   LCD_MENU_MAX,
 } lcd_menu_t;
@@ -502,6 +503,29 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     }
 
     break;
+
+  case LCD_MENU_BATTERY:
+    // 배터리 전압, %
+    {
+      char line_buff[16 + 1] = {0};
+
+      sprintf(line_buff, "%5.2fV / %4.1f%%", battery_get_voltage(), battery_get_percentage());
+      for (uint8_t i = 0; i < 17; i++) { // fill blank
+        if (line_buff[i] == 0) {
+          for (uint8_t j = i; j < 17; j++) {
+            line_buff[j] = ' ';
+          }
+          line_buff[17] = 0;
+          break;
+        }
+      }
+
+      lcd_set_cursor(0, 0);
+      lcd_set_string(line_buff);
+    }
+
+    break;
+
   case LCD_MENU_MAX:
   default:
     break;
