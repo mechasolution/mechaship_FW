@@ -590,9 +590,6 @@ static void s_lcd_task(void *arg) {
         break;
 
       case LCD_TASK_COMMAND_UPDATE_USB_CONNECTION_STATUS:
-        // if (lcd_queue_data.data.update_usb_connection_status.status == USB_CONNECTION_4 && lcd_data.main.usb_connection == USB_CONNECTION_3) { // TODO: 없어도 괜찮을듯. 테스트해볼것.
-        //   lcd_queue_data.data.update_usb_connection_status.status = USB_CONNECTION_2;
-        // }
         lcd_data.main.usb_connection = lcd_queue_data.data.update_usb_connection_status.status;
         lcd_data.main.usb_connection_changed = true;
         break;
