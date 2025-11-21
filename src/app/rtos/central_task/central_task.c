@@ -21,7 +21,7 @@
 
 #define TAG "central"
 
-#define SWITCH_DOUBLE_CLICK_PERIOS_MS 100
+#define SWITCH_DOUBLE_CLICK_PERIOS_MS 500
 
 typedef struct {
   enum {
