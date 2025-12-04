@@ -474,8 +474,14 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     {
       char line_buff[16 + 1] = {0};
 
-      if (lcd_data->info_swap == false && lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_WLAN) { // SSID
-        memcpy(line_buff, lcd_data->network.ssid, 17);
+      if (lcd_data->info_swap == false) { // SSID / LAN
+        if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_WLAN) {
+          memcpy(line_buff, lcd_data->network.ssid, 17);
+        } else if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_LAN) {
+          sprintf(line_buff, "**LAN**");
+        } else if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_NONE) {
+          sprintf(line_buff, "**NO Network**");
+        }
       } else { // IP
         if (lcd_data->main.ipv4 == 0) {
           sprintf(line_buff, "Waiting IP");
