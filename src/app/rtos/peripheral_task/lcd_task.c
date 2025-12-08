@@ -10,6 +10,7 @@
 #include "driver/battery/battery.h"
 #include "driver/lcd/lcd.h"
 #include "driver/log/log.h"
+#include "driver/rc4/rc4.h"
 
 #include "hal/time/time.h"
 
@@ -23,6 +24,7 @@ typedef enum {
   LCD_MENU_MAIN = 0x00,
   LCD_MENU_NETWORK,
   LCD_MENU_BATTERY,
+  LCD_MENU_RC,
 
   LCD_MENU_MAX,
 } lcd_menu_t;
@@ -301,6 +303,16 @@ static void s_start_menu_task(lcd_menu_t current_menu) {
     xTimerStart(s_frame_generation_timer_hd, 0);
     break;
 
+  case LCD_MENU_RC:
+    lcd_set_cursor(0, 0);
+    lcd_set_string("RC rcv info ---");
+    lcd_next_frame();
+
+    xTimerStop(s_frame_generation_timer_hd, 0);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    xTimerStart(s_frame_generation_timer_hd, 0);
+    break;
+
   case LCD_MENU_MAIN:
   case LCD_MENU_MAX:
   default:
@@ -550,6 +562,21 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
       lcd_set_string(line_buff);
     }
 
+    break;
+
+  case LCD_MENU_RC:
+    // RC
+    {
+      char line_buff[16 + 1] = {0};
+
+      sprintf(line_buff, "C1 %4d  C2 %4d", rc4_get_ch1_pulsewidth(), rc4_get_ch2_pulsewidth());
+      lcd_set_cursor(0, 0);
+      lcd_set_string(line_buff);
+
+      sprintf(line_buff, "C3 %4d  C4 %4d", rc4_get_ch3_pulsewidth(), rc4_get_ch4_pulsewidth());
+      lcd_set_cursor(1, 0);
+      lcd_set_string(line_buff);
+    }
     break;
 
   case LCD_MENU_MAX:
