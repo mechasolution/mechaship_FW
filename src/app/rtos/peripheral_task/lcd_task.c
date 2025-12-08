@@ -499,7 +499,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
           for (uint8_t j = i; j < 17; j++) {
             line_buff[j] = ' ';
           }
-          line_buff[17] = 0;
+          line_buff[16] = 0;
           break;
         }
       }
@@ -541,7 +541,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
           for (uint8_t j = i; j < 17; j++) {
             line_buff[j] = ' ';
           }
-          line_buff[17] = 0;
+          line_buff[16] = 0;
           break;
         }
       }
