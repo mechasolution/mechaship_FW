@@ -24,11 +24,10 @@ static void s_i2c_write_byte(uint8_t val) {
 }
 
 static void s_lcd_toggle_enable(uint8_t val) {
-  time_block_us(1);
   s_i2c_write_byte(val | LCD_ENABLE_BIT);
   time_block_us(1);
   s_i2c_write_byte(val & ~LCD_ENABLE_BIT);
-  time_block_us(1);
+  time_block_us(50);
 }
 
 static void s_lcd_send_byte(uint8_t val, int mode) {
