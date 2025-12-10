@@ -34,6 +34,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 include(FreeRTOS_Kernel_import.cmake)
+include(nanopb_import.cmake)
 
 project(mechaship_fw C CXX ASM)
 

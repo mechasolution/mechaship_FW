@@ -38,6 +38,8 @@ target_link_libraries(mechaship_fw
   FreeRTOS-Kernel
 
   microros
+
+  protobuf-nanopb-static
 )
 
 set_target_properties(mechaship_fw PROPERTIES
