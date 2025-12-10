@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package mechaship.sbc;
+
+// 공통적으로 들어오는 SBC 메시지
+message SbcMessage {
+  CommandType type = 1;
+
+  // 각 타입별 payload
+  IpInfo       ip_info        = 2;
+  HwInfo       hw_info        = 3;
+  PowerOff     power_off      = 4;
+  NetworkInfo  network_info   = 5;
+  PingResponse ping_response  = 6;
+}
+
+// 명령 종류 (C의 command 번호를 그대로 사용해도 되고, 새로운 enum 정의도 가능)
+enum CommandType {
+  COMMAND_NONE = 0;
+
+  COMMAND_IP               = 1;
+  COMMAND_SEND_HW_INFO     = 2; // IN
+  COMMAND_POWER_OFF        = 3; // PO
+  COMMAND_NETWORK_INFO     = 4; // IW
+  COMMAND_PING_RESPONSE    = 5; // PG
+}
+
+// ========== 개별 payload ==========
+
+// IP 보고: 기존 C는 "x.x.x.x" 를 4바이트 uint32 로 만들고 있음
+message IpInfo {
+  uint32 ipv4 = 1; // host byte order or network byte order는 구현에서 합의
+}
+
+// IN
+message HwInfo {
+  string date = 1; 
+  string time = 2;
+  string git_commit = 3;
+}
+
+// PO
+message PowerOff {
+  // no field (필요시 reason 등 추가 가능)
+}
+
+// IW
+message NetworkInfo {
+  NetworkType type = 1;
+  string ssid = 2;
+  int32 rssi = 3;
+  uint32 frequency = 4;
+}
+
+// PG
+message PingResponse {
+  float ping_ms = 1;
+}
+
+enum NetworkType {
+  NETWORK_NONE = 0;
+  NETWORK_WLAN = 1;
+  NETWORK_LAN  = 2;
+}

@@ -7,6 +7,10 @@
 
 #include <tusb.h>
 
+#include <pb_encode.h>
+
+#include "messages.pb.h"
+
 #include "driver/log/log.h"
 
 #include "sbc.h"
@@ -65,6 +69,8 @@ static mw_sbc_network_info_response_callback s_network_info_response_callback = 
 static mw_sbc_ping_response_callback s_ping_response_callback = NULL;
 
 static uint32_t s_last_ip = 0;
+
+static SimpleMessage msg = {0};
 
 #define BUFF_MAX 70
 static void s_process_tx(sbc_task_queue_data_t *queue_data) {
