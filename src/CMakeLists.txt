@@ -52,8 +52,10 @@ execute_process(
   OUTPUT_VARIABLE GIT_COMMIT_HASH
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-
 add_definitions(-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\")
+
+execute_process(COMMAND date +%s OUTPUT_VARIABLE BUILD_EPOCH OUTPUT_STRIP_TRAILING_WHITESPACE)
+add_compile_definitions(BUILD_EPOCH=${BUILD_EPOCH})
 
 pico_generate_pio_header(mechaship_fw ${PIO_FILES_LIST})
 
