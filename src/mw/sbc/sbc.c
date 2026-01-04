@@ -276,18 +276,17 @@ static void s_process_rx(ToMcuMessage *pb_struct) {
   case ToMcuMessage_network_info_res_tag: {
     mw_sbc_network_status_t type;
     switch (pb_struct->data.network_info_res.type) {
-
     case NetworkType_NETWORK_TYPE_WLAN:
-      type = NetworkType_NETWORK_TYPE_WLAN;
+      type = MW_SBC_NETWORK_STATUS_WLAN;
       break;
 
     case NetworkType_NETWORK_TYPE_LAN:
-      type = NetworkType_NETWORK_TYPE_LAN;
+      type = MW_SBC_NETWORK_STATUS_LAN;
       break;
 
     case NetworkType_NETWORK_TYPE_NONE:
     default:
-      type = NetworkType_NETWORK_TYPE_NONE;
+      type = MW_SBC_NETWORK_STATUS_NONE;
       break;
     }
 
@@ -297,6 +296,7 @@ static void s_process_rx(ToMcuMessage *pb_struct) {
                                        (int8_t)pb_struct->data.network_info_res.rssi,
                                        (uint16_t)pb_struct->data.network_info_res.frequency);
     }
+    break;
   }
 
   case ToMcuMessage_ping_res_tag:
