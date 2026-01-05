@@ -166,10 +166,11 @@ static StaticTimer_t s_network_menu_frequent_job_timer_buff;
 
 static void s_frame_generation_timer_callback(TimerHandle_t timer_hd) {
   static TickType_t last_force_reinit_tick = 0;
+  TickType_t cuttent_tick = xTaskGetTickCount();
   lcd_task_queue_data_t data;
 
-  if (xTaskGetTickCount() - last_force_reinit_tick >= pdMS_TO_TICKS(10000)) {
-    last_force_reinit_tick = xTaskGetTickCount();
+  if (cuttent_tick - last_force_reinit_tick >= pdMS_TO_TICKS(10000)) {
+    last_force_reinit_tick = cuttent_tick;
     data.command = LCD_TASK_COMMAND_FORCE_REINIT;
   } else {
     data.command = LCD_TASK_COMMAND_FRAME;
@@ -186,7 +187,15 @@ static void s_info_swap_timer_callback(TimerHandle_t timer_hd) {
 }
 
 static void s_network_menu_frequent_job_timer_callback(TimerHandle_t timer_hd) {
+  static TickType_t last_ping_req_tick = 0;
+  TickType_t cuttent_tick = xTaskGetTickCount();
+
   mw_sbc_request_network_info();
+  if (cuttent_tick - last_ping_req_tick >= pdMS_TO_TICKS(5000)) {
+    last_ping_req_tick = cuttent_tick;
+
+    mw_sbc_request_ping();
+  }
 }
 
 static void s_network_info_response_callback(mw_sbc_network_status_t type, char *ssid, int8_t rssi, uint16_t frequency) {
@@ -265,9 +274,6 @@ static void s_power_off(void) {
 static void s_do_double_click_work(lcd_menu_t current_menu) {
   switch (current_menu) {
   case LCD_MENU_NETWORK:
-    mw_sbc_request_ping();
-    break;
-
   case LCD_MENU_MAIN:
   case LCD_MENU_MAX:
   default:
@@ -721,7 +727,7 @@ bool lcd_task_init(void) {
 
   s_network_menu_frequent_job_timer_hd = xTimerCreateStatic(
       "network_menu_frequent_job_timer",
-      pdMS_TO_TICKS(500),
+      pdMS_TO_TICKS(1000),
       pdTRUE,
       (void *)0,
       s_network_menu_frequent_job_timer_callback,
