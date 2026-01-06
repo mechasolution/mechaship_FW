@@ -119,10 +119,10 @@ float rc4_get_throttle_percentage(void) {
   float percentage = 0.0f;
   if (pulse >= center) {
     center += HWCONF_RC_THROTTLE_PULSE_MARGIN;
-    percentage = -1.0f * (float)(pulse - center) / (max - center) * 100.0f;
+    percentage = (float)(pulse - center) / (max - center) * 100.0f;
   } else {
     center -= HWCONF_RC_THROTTLE_PULSE_MARGIN;
-    percentage = (float)(center - pulse) / (center - min) * 100.0f;
+    percentage = -1.0f * (float)(center - pulse) / (center - min) * 100.0f;
   }
 
   return percentage;
