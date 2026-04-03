@@ -1,3 +1,45 @@
+#ifdef __ZEPHYR__
+
+#include "rc4.h"
+
+bool rc4_init(void) {
+  return false;
+}
+
+uint32_t rc4_get_ch1_pulsewidth(void) {
+  return 0;
+}
+
+uint32_t rc4_get_ch2_pulsewidth(void) {
+  return 0;
+}
+
+uint32_t rc4_get_ch3_pulsewidth(void) {
+  return 0;
+}
+
+uint32_t rc4_get_ch4_pulsewidth(void) {
+  return 0;
+}
+
+float rc4_get_throttle_percentage(void) {
+  return 0.0f;
+}
+
+float rc4_get_key_degree(void) {
+  return 90.0f;
+}
+
+rc4_slideswitch_data_t rc4_get_slideswitch(void) {
+  return RC4_SLIDESWITCH_ERR;
+}
+
+bool rc4_get_switch(void) {
+  return false;
+}
+
+#else
+
 #include <stdio.h>
 
 #include "hardware/pio.h"
@@ -188,3 +230,5 @@ bool rc4_get_switch(void) {
 
   return false;
 }
+
+#endif

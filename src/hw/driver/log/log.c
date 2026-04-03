@@ -1,26 +1,17 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include <pico/critical_section.h>
-
-#include <hardware/gpio.h>
-#include <hardware/uart.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/printk.h>
 
 #include "hal/time/time.h"
-
 #include "log.h"
 
-static critical_section_t s_uart_lock;
+static struct k_mutex s_uart_lock;
 static log_level_t s_log_level = LOG_NONE;
 
 bool log_init(void) {
-  uart_init(HWCONF_SERIAL_DEBUG_ID, HWCONF_SERIAL_DEBUG_BAUDRATE);
-
-  gpio_set_function(HWCONF_SERIAL_DEBUG_PIN_TX, UART_FUNCSEL_NUM(HWCONF_SERIAL_DEBUG_ID, HWCONF_SERIAL_DEBUG_PIN_TX));
-  gpio_set_function(HWCONF_SERIAL_DEBUG_PIN_RX, UART_FUNCSEL_NUM(HWCONF_SERIAL_DEBUG_ID, HWCONF_SERIAL_DEBUG_PIN_RX));
-
-  critical_section_init(&s_uart_lock);
-
+  k_mutex_init(&s_uart_lock);
   return true;
 }
 
@@ -29,11 +20,9 @@ void log_set_level(log_level_t target) {
 }
 
 static inline void s_print_string(const char *s) {
-  critical_section_enter_blocking(&s_uart_lock);
-
-  uart_puts(HWCONF_SERIAL_DEBUG_ID, s);
-
-  critical_section_exit(&s_uart_lock);
+  k_mutex_lock(&s_uart_lock, K_FOREVER);
+  printk("%s", s);
+  k_mutex_unlock(&s_uart_lock);
 }
 
 static void s_log(log_level_t level, const char *tag, const char *format, va_list args) {
@@ -43,25 +32,17 @@ static void s_log(log_level_t level, const char *tag, const char *format, va_lis
 
   switch (level) {
   case LOG_DEBUG:
-    s_print_string("\e[90m"); // 회색
-    s_print_string("D (");
+    s_print_string("\e[90mD (");
     break;
-
   case LOG_INFO:
-    s_print_string("\e[32m"); // 초록색
-    s_print_string("I (");
+    s_print_string("\e[32mI (");
     break;
-
   case LOG_WARNING:
-    s_print_string("\e[33m"); // 주황색
-    s_print_string("W (");
+    s_print_string("\e[33mW (");
     break;
-
   case LOG_ERROR:
-    s_print_string("\e[31m"); // 빨간색
-    s_print_string("E (");
+    s_print_string("\e[31mE (");
     break;
-
   case LOG_NONE:
   case LOG_MAX:
   default:
@@ -69,7 +50,7 @@ static void s_log(log_level_t level, const char *tag, const char *format, va_lis
   }
 
   char buffer[256];
-  sprintf(buffer, "%u", time_get_millis());
+  snprintf(buffer, sizeof(buffer), "%u", time_get_millis());
   s_print_string(buffer);
   s_print_string(") ");
   s_print_string(tag);
@@ -77,8 +58,7 @@ static void s_log(log_level_t level, const char *tag, const char *format, va_lis
 
   vsnprintf(buffer, sizeof(buffer), format, args);
   s_print_string(buffer);
-  s_print_string("\e[0m");
-  s_print_string("\r\n");
+  s_print_string("\e[0m\r\n");
 }
 
 void log_debug(const char *tag, const char *format, ...) {

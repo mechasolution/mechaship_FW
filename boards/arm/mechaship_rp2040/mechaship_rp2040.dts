@@ -1,0 +1,189 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <freq.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+#include <raspberrypi/rpi_pico/rp2040.dtsi>
+#include "mechaship_rp2040-pinctrl.dtsi"
+
+/ {
+	model = "Mechaship RP2040 Mainboard";
+	compatible = "mechaship,mechaship-rp2040";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,flash-controller = &ssi;
+		zephyr,console = &uart1;
+		zephyr,shell-uart = &uart1;
+		zephyr,code-partition = &code_partition;
+	};
+
+	aliases {
+		rtc = &rtc;
+		watchdog0 = &wdt0;
+		led0 = &status_led;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		status_led: led_0 {
+			gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
+			label = "STATUS_LED";
+		};
+	};
+
+	mechaship_hw: mechaship_hw {
+		compatible = "mechaship,rp2040-hw";
+
+		debug-uart = <&uart1>;
+		debug-baudrate = <115200>;
+
+		led-status-gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
+		led-ros-mode-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
+		led-rc-mode-gpios = <&gpio0 13 GPIO_ACTIVE_HIGH>;
+		led-fault-gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+
+		emo-switch-gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
+
+		power-main-en-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
+		power-sbc-en-gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
+		power-act-en-gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
+		switch-power-gpios = <&gpio0 21 GPIO_ACTIVE_LOW>;
+
+		shift-latch-gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
+		shift-clk-gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
+		shift-data-gpios = <&gpio0 28 GPIO_ACTIVE_HIGH>;
+
+		lcd-i2c = <&i2c1>;
+		lcd-addr = <0x27>;
+
+		io-channels = <&adc 3>;
+		battery-cell-count = <3>;
+		battery-total-low-alert-mv = <9300>;
+		battery-divider-milli = <4300>;
+
+		piezo-pwms = <&pwm 1 PWM_USEC(1000) PWM_POLARITY_NORMAL>;
+		servo-pwms = <&pwm 6 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+		esc-pwms = <&pwm 7 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+
+		rgbw-led-gpios = <&gpio0 12 GPIO_ACTIVE_HIGH>;
+		rgbw-led-pixel-count = <9>;
+
+		rc-pio-id = <1>;
+		rc-ch1-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+		rc-ch2-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
+		rc-ch3-gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+		rc-ch4-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+
+		rc-throttle-pulse-margin = <20>;
+		rc-throttle-max-pulse = <1980>;
+		rc-throttle-min-pulse = <1020>;
+		rc-throttle-middle = <1500>;
+
+		rc-key-pulse-margin = <5>;
+		rc-key-max-pulse = <2095>;
+		rc-key-min-pulse = <905>;
+		rc-key-middle = <1500>;
+
+		rc-ch3-max-pulse = <2000>;
+		rc-ch3-min-pulse = <1000>;
+		rc-ch3-middle = <1500>;
+
+		rc-ch4-default-pulse = <1000>;
+		rc-ch4-clicked-pulse = <2000>;
+	};
+};
+
+&flash0 {
+	reg = <0x10000000 DT_SIZE_M(2)>;
+
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		second_stage_bootloader: partition@0 {
+			label = "second_stage_bootloader";
+			reg = <0x00000000 0x100>;
+			read-only;
+		};
+
+		code_partition: partition@100 {
+			label = "code-partition";
+			reg = <0x100 (DT_SIZE_M(2) - 0x100)>;
+			read-only;
+		};
+	};
+};
+
+&uart0 {
+	status = "disabled";
+};
+
+&uart1 {
+	current-speed = <115200>;
+	status = "okay";
+	pinctrl-0 = <&uart1_default>;
+	pinctrl-names = "default";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "disabled";
+};
+
+&i2c1 {
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+	status = "okay";
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-names = "default";
+};
+
+&spi0 {
+	status = "disabled";
+};
+
+&timer {
+	status = "okay";
+};
+
+&wdt0 {
+	status = "okay";
+};
+
+&rtc {
+	clocks = <&clocks RPI_PICO_CLKID_CLK_RTC>;
+	status = "okay";
+};
+
+&adc {
+	status = "okay";
+	pinctrl-0 = <&adc_default>;
+	pinctrl-names = "default";
+};
+
+zephyr_udc0: &usbd {
+	status = "okay";
+};
+
+&pwm {
+	status = "okay";
+	pinctrl-0 = <&pwm_default>;
+	pinctrl-names = "default";
+};
+
+&vreg {
+	regulator-always-on;
+	regulator-allowed-modes = <REGULATOR_RPI_PICO_MODE_NORMAL>;
+};

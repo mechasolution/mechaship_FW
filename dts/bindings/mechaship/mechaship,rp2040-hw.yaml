@@ -1,0 +1,175 @@
+description: Mechaship RP2040 hardware mapping
+compatible: "mechaship,rp2040-hw"
+
+properties:
+  debug-uart:
+    type: phandle
+    required: true
+
+  debug-baudrate:
+    type: int
+    required: true
+
+  led-status-gpios:
+    type: phandle-array
+    required: true
+
+  led-ros-mode-gpios:
+    type: phandle-array
+    required: true
+
+  led-rc-mode-gpios:
+    type: phandle-array
+    required: true
+
+  led-fault-gpios:
+    type: phandle-array
+    required: true
+
+  emo-switch-gpios:
+    type: phandle-array
+    required: true
+
+  power-main-en-gpios:
+    type: phandle-array
+    required: true
+
+  power-sbc-en-gpios:
+    type: phandle-array
+    required: true
+
+  power-act-en-gpios:
+    type: phandle-array
+    required: true
+
+  switch-power-gpios:
+    type: phandle-array
+    required: true
+
+  shift-latch-gpios:
+    type: phandle-array
+    required: true
+
+  shift-clk-gpios:
+    type: phandle-array
+    required: true
+
+  shift-data-gpios:
+    type: phandle-array
+    required: true
+
+  lcd-i2c:
+    type: phandle
+    required: true
+
+  lcd-addr:
+    type: int
+    required: true
+
+  io-channels:
+    type: phandle-array
+    required: true
+
+  battery-cell-count:
+    type: int
+    required: true
+
+  battery-total-low-alert-mv:
+    type: int
+    required: true
+
+  battery-divider-milli:
+    type: int
+    required: true
+
+  piezo-pwms:
+    type: phandle-array
+    required: true
+
+  servo-pwms:
+    type: phandle-array
+    required: true
+
+  esc-pwms:
+    type: phandle-array
+    required: true
+
+  rgbw-led-gpios:
+    type: phandle-array
+    required: true
+
+  rgbw-led-pixel-count:
+    type: int
+    required: true
+
+  rc-pio-id:
+    type: int
+    required: true
+
+  rc-ch1-gpios:
+    type: phandle-array
+    required: true
+
+  rc-ch2-gpios:
+    type: phandle-array
+    required: true
+
+  rc-ch3-gpios:
+    type: phandle-array
+    required: true
+
+  rc-ch4-gpios:
+    type: phandle-array
+    required: true
+
+  rc-throttle-pulse-margin:
+    type: int
+    required: true
+
+  rc-throttle-max-pulse:
+    type: int
+    required: true
+
+  rc-throttle-min-pulse:
+    type: int
+    required: true
+
+  rc-throttle-middle:
+    type: int
+    required: true
+
+  rc-key-pulse-margin:
+    type: int
+    required: true
+
+  rc-key-max-pulse:
+    type: int
+    required: true
+
+  rc-key-min-pulse:
+    type: int
+    required: true
+
+  rc-key-middle:
+    type: int
+    required: true
+
+  rc-ch3-max-pulse:
+    type: int
+    required: true
+
+  rc-ch3-min-pulse:
+    type: int
+    required: true
+
+  rc-ch3-middle:
+    type: int
+    required: true
+
+  rc-ch4-default-pulse:
+    type: int
+    required: true
+
+  rc-ch4-clicked-pulse:
+    type: int
+    required: true

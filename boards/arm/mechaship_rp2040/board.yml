@@ -1,0 +1,6 @@
+board:
+  name: mechaship_rp2040
+  full_name: Mechaship RP2040 Mainboard
+  vendor: mechaship
+  socs:
+    - name: rp2040

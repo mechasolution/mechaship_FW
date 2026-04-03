@@ -1,14 +1,18 @@
-#include <hardware/gpio.h>
+#include <zephyr/drivers/gpio.h>
 
+#include "hwconf.h"
 #include "emo.h"
 
-bool emo_init(void) {
-  gpio_init(HWCONF_PIN_EMO_SWITCH);
-  gpio_set_dir(HWCONF_PIN_EMO_SWITCH, GPIO_IN);
+static const struct gpio_dt_spec s_emo_switch = HWCONF_EMO_SWITCH_SPEC;
 
-  return true;
+bool emo_init(void) {
+  if (!gpio_is_ready_dt(&s_emo_switch)) {
+    return false;
+  }
+
+  return gpio_pin_configure_dt(&s_emo_switch, GPIO_INPUT) == 0;
 }
 
 bool emo_get_status(void) {
-  return gpio_get(HWCONF_PIN_EMO_SWITCH);
+  return gpio_pin_get_dt(&s_emo_switch) > 0;
 }

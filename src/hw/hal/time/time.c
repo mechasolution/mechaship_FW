@@ -1,25 +1,23 @@
-#include "pico/time.h"
+#include <zephyr/kernel.h>
 
 #include "time.h"
 
 bool time_init(void) {
-  /* nothing to do */
-
   return true;
 }
 
 uint32_t time_get_millis(void) {
-  return to_ms_since_boot(get_absolute_time());
+  return (uint32_t)k_uptime_get();
 }
 
 uint64_t time_get_micros(void) {
-  return to_us_since_boot(get_absolute_time());
+  return k_ticks_to_us_floor64(k_uptime_ticks());
 }
 
 void time_block_ms(uint32_t ms) {
-  sleep_ms(ms);
+  k_msleep(ms);
 }
 
 void time_block_us(uint64_t us) {
-  sleep_us(us);
+  k_busy_wait((uint32_t)us);
 }

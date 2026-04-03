@@ -22,8 +22,14 @@ bool driver_init(void) {
   ret &= lcd_init();
   ret &= log_init();
   ret &= power_init();
+#ifdef __ZEPHYR__
+  /* RC4 / RGBW are still legacy PIO implementations. Keep init best-effort. */
+  (void)rc4_init();
+  (void)rgbw_led_init();
+#else
   ret &= rc4_init();
   ret &= rgbw_led_init();
+#endif
   ret &= switch8_init();
   ret &= tone_init();
 

@@ -1,9 +1,31 @@
+#ifdef __ZEPHYR__
+
+#include "rgbw_led.h"
+
+bool rgbw_led_init(void) {
+  return false;
+}
+
+void rgbw_led_set_pixels(rgbw_color_data_t color) {
+  (void)color;
+}
+
+void rgbw_led_set_onboard_pixel(rgbw_color_data_t color) {
+  (void)color;
+}
+
+void rgbw_led_test(bool st) {
+  (void)st;
+}
+
+#else
+
 #include "hardware/pio.h"
 
 #include "sk6812.pio.h"
 
 #include "hal/time/time.h"
-
+#include "hwconf.h"
 #include "rgbw_led.h"
 
 #define PIO_CHANNEL pio0
@@ -42,3 +64,5 @@ void rgbw_led_test(bool st) {
     rgbw_led_clear_all();
   }
 }
+
+#endif
