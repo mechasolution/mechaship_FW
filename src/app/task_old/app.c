@@ -6,7 +6,7 @@
 #include "peripheral_task/lcd_task.h"
 #include "peripheral_task/sled_task.h"
 
-#include "rtos.h"
+#include "app.h"
 
 #include "driver/log/log.h"
 
@@ -28,11 +28,11 @@ static void s_task_init(void) {
   configASSERT(result);
 }
 
-void rtos_init(void) {
+void app_init(void) {
   s_task_init();
 }
 
-void rtos_start(void) {
+void app_start(void) {
   vTaskStartScheduler();
 }
 
