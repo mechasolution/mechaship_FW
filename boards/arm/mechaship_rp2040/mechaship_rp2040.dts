@@ -109,7 +109,7 @@
 };
 
 &flash0 {
-	reg = <0x10000000 DT_SIZE_M(2)>;
+	reg = <0x10000000 DT_SIZE_M(16)>;
 
 	partitions {
 		compatible = "fixed-partitions";
@@ -124,7 +124,7 @@
 
 		code_partition: partition@100 {
 			label = "code-partition";
-			reg = <0x100 (DT_SIZE_M(2) - 0x100)>;
+			reg = <0x100 (DT_SIZE_M(16) - 0x100)>;
 			read-only;
 		};
 	};

@@ -1,4 +1,4 @@
-# pico-zephyr-project
+#pico-zephyr-project
 # -------------------------------------------------------------------------------
 # Zephyr Example Application
 #
@@ -17,6 +17,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(mechaship_FW LANGUAGES C)
 
 add_subdirectory(src/app)
+add_subdirectory(src/bsp)
 
 target_sources(app PRIVATE
   src/main.c

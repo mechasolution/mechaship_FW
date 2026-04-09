@@ -1,0 +1,8 @@
+#ifndef CA3B0495_DE0B_409C_98EA_ED70DB6EA212_H_
+#define CA3B0495_DE0B_409C_98EA_ED70DB6EA212_H_
+
+#include <stdbool.h>
+
+bool bsp_init(void);
+
+#endif /* CA3B0495_DE0B_409C_98EA_ED70DB6EA212_H_ */
