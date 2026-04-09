@@ -34,9 +34,20 @@
 	leds {
 		compatible = "gpio-leds";
 
-		status_led: led_0 {
+		status_led: status_led {
 			gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
-			label = "STATUS_LED";
+		};
+
+		fault_led: fault_led {
+			gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+		};
+
+		ros_mode_led: ros_mode_led {
+			gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
+		};
+
+		rc_mode_led: rc_mode_led {
+			gpios = <&gpio0 13 GPIO_ACTIVE_HIGH>;
 		};
 	};
 
@@ -44,9 +55,6 @@
 		debug-uart = <&uart1>;
 		debug-baudrate = <115200>;
 
-		led-status-gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
-		led-ros-mode-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
-		led-rc-mode-gpios = <&gpio0 13 GPIO_ACTIVE_HIGH>;
 		led-fault-gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
 
 		emo-switch-gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;

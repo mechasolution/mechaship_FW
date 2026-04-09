@@ -1,13 +1,15 @@
-#include <zephyr/drivers/gpio.h>
 #include <errno.h>
 
-#include "hwconf.h"
+#include <zephyr/drivers/gpio.h>
+
 #include "led.h"
 
-static const struct gpio_dt_spec s_led_status = HWCONF_LED_STATUS_SPEC;
-static const struct gpio_dt_spec s_led_ros = HWCONF_LED_ROS_MODE_SPEC;
-static const struct gpio_dt_spec s_led_rc = HWCONF_LED_RC_MODE_SPEC;
-static const struct gpio_dt_spec s_led_fault = HWCONF_LED_FAULT_SPEC;
+#define STATUS_LED_NODE DT_NODELABEL(status_led)
+
+static const struct gpio_dt_spec s_led_status = GPIO_DT_SPEC_GET(DT_NODELABEL(status_led), gpios);
+static const struct gpio_dt_spec s_led_fault = GPIO_DT_SPEC_GET(DT_NODELABEL(fault_led), gpios);
+static const struct gpio_dt_spec s_led_ros = GPIO_DT_SPEC_GET(DT_NODELABEL(ros_mode_led), gpios);
+static const struct gpio_dt_spec s_led_rc = GPIO_DT_SPEC_GET(DT_NODELABEL(rc_mode_led), gpios);
 
 static int s_config_output(const struct gpio_dt_spec *spec) {
   if (!gpio_is_ready_dt(spec)) {
