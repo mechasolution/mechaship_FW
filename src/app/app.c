@@ -3,11 +3,7 @@
 #include "app.h"
 
 bool app_init(void) {
-  bool ret = true;
-
-  rtos_init();
-
-  return ret;
+  return true;
 }
 
 void app_start(void) {

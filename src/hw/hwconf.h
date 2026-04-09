@@ -7,10 +7,13 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 
-#define HWCONF_NODE DT_NODELABEL(mechaship_hw)
+#define HWCONF_NODE DT_PATH(zephyr_user)
+#define HWCONF_PIEZO_PWM_NODE DT_NODELABEL(piezo_pwm)
+#define HWCONF_SERVO_PWM_NODE DT_NODELABEL(servo_pwm)
+#define HWCONF_ESC_PWM_NODE DT_NODELABEL(esc_pwm)
 
 #if !DT_NODE_EXISTS(HWCONF_NODE)
-#error "Devicetree node 'mechaship_hw' is missing"
+#error "Devicetree node '/zephyr,user' is missing"
 #endif
 
 #define HWCONF_PIN_RC_CH1 DT_GPIO_PIN(HWCONF_NODE, rc_ch1_gpios)
@@ -74,17 +77,9 @@
 #define HWCONF_SHIFT_CLK_SPEC GPIO_DT_SPEC_GET(HWCONF_NODE, shift_clk_gpios)
 #define HWCONF_SHIFT_DATA_SPEC GPIO_DT_SPEC_GET(HWCONF_NODE, shift_data_gpios)
 
-#define HWCONF_PWM_SPEC_FROM_PROP(prop)                                 \
-  {                                                                     \
-      .dev = DEVICE_DT_GET(DT_PHANDLE_BY_IDX(HWCONF_NODE, prop, 0)),   \
-      .channel = DT_PHA_BY_IDX(HWCONF_NODE, prop, 0, channel),         \
-      .period = DT_PHA_BY_IDX(HWCONF_NODE, prop, 0, period),           \
-      .flags = DT_PHA_BY_IDX_OR(HWCONF_NODE, prop, 0, flags, 0),       \
-  }
-
-#define HWCONF_PIEZO_PWM_SPEC HWCONF_PWM_SPEC_FROM_PROP(piezo_pwms)
-#define HWCONF_SERVO_PWM_SPEC HWCONF_PWM_SPEC_FROM_PROP(servo_pwms)
-#define HWCONF_ESC_PWM_SPEC HWCONF_PWM_SPEC_FROM_PROP(esc_pwms)
+#define HWCONF_PIEZO_PWM_SPEC PWM_DT_SPEC_GET(HWCONF_PIEZO_PWM_NODE)
+#define HWCONF_SERVO_PWM_SPEC PWM_DT_SPEC_GET(HWCONF_SERVO_PWM_NODE)
+#define HWCONF_ESC_PWM_SPEC PWM_DT_SPEC_GET(HWCONF_ESC_PWM_NODE)
 
 #define HWCONF_BATTERY_ADC_SPEC ADC_DT_SPEC_GET_BY_IDX(HWCONF_NODE, 0)
 

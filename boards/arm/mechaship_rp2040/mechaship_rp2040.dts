@@ -40,9 +40,7 @@
 		};
 	};
 
-	mechaship_hw: mechaship_hw {
-		compatible = "mechaship,rp2040-hw";
-
+	zephyr,user {
 		debug-uart = <&uart1>;
 		debug-baudrate = <115200>;
 
@@ -70,10 +68,6 @@
 		battery-total-low-alert-mv = <9300>;
 		battery-divider-milli = <4300>;
 
-		piezo-pwms = <&pwm 1 PWM_USEC(1000) PWM_POLARITY_NORMAL>;
-		servo-pwms = <&pwm 6 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
-		esc-pwms = <&pwm 7 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
-
 		rgbw-led-gpios = <&gpio0 12 GPIO_ACTIVE_HIGH>;
 		rgbw-led-pixel-count = <9>;
 
@@ -99,6 +93,18 @@
 
 		rc-ch4-default-pulse = <1000>;
 		rc-ch4-clicked-pulse = <2000>;
+	};
+
+	piezo_pwm: piezo_pwm {
+		pwms = <&pwm 1 PWM_USEC(1000) PWM_POLARITY_NORMAL>;
+	};
+
+	servo_pwm: servo_pwm {
+		pwms = <&pwm 6 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+	};
+
+	esc_pwm: esc_pwm {
+		pwms = <&pwm 7 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
 	};
 };
 
