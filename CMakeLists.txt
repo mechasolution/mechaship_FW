@@ -1,4 +1,4 @@
-#pico-zephyr-project
+# pico-zephyr-project
 # -------------------------------------------------------------------------------
 # Zephyr Example Application
 #
