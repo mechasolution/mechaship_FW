@@ -4,32 +4,29 @@
 
 #include "led.h"
 
-#define STATUS_LED_NODE DT_NODELABEL(status_led)
-
 static const struct gpio_dt_spec s_led_status = GPIO_DT_SPEC_GET(DT_NODELABEL(status_led), gpios);
-static const struct gpio_dt_spec s_led_fault = GPIO_DT_SPEC_GET(DT_NODELABEL(fault_led), gpios);
 static const struct gpio_dt_spec s_led_ros = GPIO_DT_SPEC_GET(DT_NODELABEL(ros_mode_led), gpios);
 static const struct gpio_dt_spec s_led_rc = GPIO_DT_SPEC_GET(DT_NODELABEL(rc_mode_led), gpios);
-
-static int s_config_output(const struct gpio_dt_spec *spec) {
-  if (!gpio_is_ready_dt(spec)) {
-    return -ENODEV;
-  }
-
-  return gpio_pin_configure_dt(spec, GPIO_OUTPUT_INACTIVE);
-}
+static const struct gpio_dt_spec s_led_fault = GPIO_DT_SPEC_GET(DT_NODELABEL(fault_led), gpios);
 
 bool led_init(void) {
-  if (s_config_output(&s_led_status) < 0) {
+  if (!gpio_is_ready_dt(&s_led_status) ||
+      !gpio_is_ready_dt(&s_led_ros) ||
+      !gpio_is_ready_dt(&s_led_rc) ||
+      !gpio_is_ready_dt(&s_led_fault)) {
     return false;
   }
-  if (s_config_output(&s_led_ros) < 0) {
+
+  if (gpio_pin_configure_dt(&s_led_status, GPIO_OUTPUT_INACTIVE) < 0) {
     return false;
   }
-  if (s_config_output(&s_led_rc) < 0) {
+  if (gpio_pin_configure_dt(&s_led_ros, GPIO_OUTPUT_INACTIVE) < 0) {
     return false;
   }
-  if (s_config_output(&s_led_fault) < 0) {
+  if (gpio_pin_configure_dt(&s_led_rc, GPIO_OUTPUT_INACTIVE) < 0) {
+    return false;
+  }
+  if (gpio_pin_configure_dt(&s_led_fault, GPIO_OUTPUT_INACTIVE) < 0) {
     return false;
   }
 

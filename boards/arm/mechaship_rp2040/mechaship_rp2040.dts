@@ -38,10 +38,6 @@
 			gpios = <&gpio0 16 GPIO_ACTIVE_HIGH>;
 		};
 
-		fault_led: fault_led {
-			gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
-		};
-
 		ros_mode_led: ros_mode_led {
 			gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
 		};
@@ -49,6 +45,19 @@
 		rc_mode_led: rc_mode_led {
 			gpios = <&gpio0 13 GPIO_ACTIVE_HIGH>;
 		};
+
+		fault_led: fault_led {
+			gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	power_ctrl: power_ctrl {
+		compatible = "mechaship,power-ctrl";
+		
+		main-en-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
+		sbc-en-gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
+		act-en-gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
+		switch-gpios = <&gpio0 21 GPIO_ACTIVE_LOW>;
 	};
 
 	zephyr,user {
@@ -58,11 +67,6 @@
 		led-fault-gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
 
 		emo-switch-gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
-
-		power-main-en-gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
-		power-sbc-en-gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
-		power-act-en-gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
-		switch-power-gpios = <&gpio0 21 GPIO_ACTIVE_LOW>;
 
 		shift-latch-gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;
 		shift-clk-gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;

@@ -1,0 +1,24 @@
+description: Mechaship power control GPIOs
+
+compatible: "mechaship,power-ctrl"
+
+properties:
+  main-en-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO used to enable main power.
+
+  sbc-en-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO used to enable SBC power.
+
+  act-en-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO used to enable actuator power.
+
+  switch-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO connected to the power switch input.
