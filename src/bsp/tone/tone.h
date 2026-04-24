@@ -6,7 +6,7 @@
 
 bool tone_init(void);
 void tone_set(uint16_t hz);
-inline void tone_reset(void) {
+static inline void tone_reset(void) {
   tone_set(0);
 }
 

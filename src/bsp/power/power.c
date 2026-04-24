@@ -3,8 +3,6 @@
 
 #include "power.h"
 
-#define POWER_CTRL_NODE DT_NODELABEL(power_ctrl)
-
 static const struct gpio_dt_spec s_main_en = GPIO_DT_SPEC_GET(DT_NODELABEL(power_ctrl), main_en_gpios);
 static const struct gpio_dt_spec s_sbc_en = GPIO_DT_SPEC_GET(DT_NODELABEL(power_ctrl), sbc_en_gpios);
 static const struct gpio_dt_spec s_act_en = GPIO_DT_SPEC_GET(DT_NODELABEL(power_ctrl), act_en_gpios);

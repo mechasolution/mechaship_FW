@@ -28,7 +28,6 @@
 	aliases {
 		rtc = &rtc;
 		watchdog0 = &wdt0;
-		led0 = &status_led;
 	};
 
 	leds {
@@ -48,6 +47,15 @@
 
 		fault_led: fault_led {
 			gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	pwms {
+		compatible = "pwm-leds";
+		status = "okay";
+
+		buzzer_pwm: buzzer_pwm {
+			pwms = <&pwm 1 PWM_HZ(1000) PWM_POLARITY_NORMAL>;
 		};
 	};
 
@@ -105,10 +113,6 @@
 
 		rc-ch4-default-pulse = <1000>;
 		rc-ch4-clicked-pulse = <2000>;
-	};
-
-	piezo_pwm: piezo_pwm {
-		pwms = <&pwm 1 PWM_USEC(1000) PWM_POLARITY_NORMAL>;
 	};
 
 	servo_pwm: servo_pwm {
@@ -197,7 +201,7 @@ zephyr_udc0: &usbd {
 
 &pwm {
 	status = "okay";
-	pinctrl-0 = <&pwm_default>;
+	pinctrl-0 = <&pwm0_default>;
 	pinctrl-names = "default";
 };
 

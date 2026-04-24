@@ -8,3 +8,4 @@ target_include_directories(app PRIVATE
 
 add_subdirectory(led)
 add_subdirectory(power)
+add_subdirectory(tone)

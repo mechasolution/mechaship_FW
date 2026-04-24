@@ -36,4 +36,11 @@
 			input-enable;
 		};
 	};
+	
+	pwm0_default: pwm0_default {
+		group1 {
+			pinmux = <PWM_0B_P17>;
+		};
+	};
 };
+
