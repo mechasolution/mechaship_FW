@@ -1,0 +1,19 @@
+description: Mechaship key actuator configuration
+
+compatible: "mechaship,actuator-key"
+
+properties:
+  pwms:
+    type: phandle-array
+    required: true
+    description: PWM output used to drive the key servo.
+
+  pulse-0-degree-us:
+    type: int
+    required: true
+    description: Pulse width in microseconds for the key servo 0 degree position.
+
+  pulse-180-degree-us:
+    type: int
+    required: true
+    description: Pulse width in microseconds for the key servo 180 degree position.

@@ -1,0 +1,19 @@
+description: Mechaship thruster actuator configuration
+
+compatible: "mechaship,actuator-thruster"
+
+properties:
+  pwms:
+    type: phandle-array
+    required: true
+    description: PWM output used to drive the thruster ESC.
+
+  pulse-0-percent-us:
+    type: int
+    required: true
+    description: Pulse width in microseconds for the thruster neutral 0 percent position.
+
+  pulse-100-percent-us:
+    type: int
+    required: true
+    description: Pulse width in microseconds for the thruster 100 percent position.

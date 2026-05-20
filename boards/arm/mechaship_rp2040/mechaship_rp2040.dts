@@ -68,6 +68,26 @@
 		switch-gpios = <&gpio0 21 GPIO_ACTIVE_LOW>;
 	};
 
+	actuators: actuators {
+		compatible = "mechaship,actuators";
+
+		key: key {
+			compatible = "mechaship,actuator-key";
+
+			pwms = <&pwm 6 PWM_HZ(50) PWM_POLARITY_NORMAL>;
+			pulse-0-degree-us = <500>;
+			pulse-180-degree-us = <2500>;
+		};
+
+		thruster: thruster {
+			compatible = "mechaship,actuator-thruster";
+
+			pwms = <&pwm 7 PWM_HZ(50) PWM_POLARITY_NORMAL>;
+			pulse-0-percent-us = <1500>;
+			pulse-100-percent-us = <1900>;
+		};
+	};
+
 	zephyr,user {
 		debug-uart = <&uart1>;
 		debug-baudrate = <115200>;
@@ -115,13 +135,6 @@
 		rc-ch4-clicked-pulse = <2000>;
 	};
 
-	servo_pwm: servo_pwm {
-		pwms = <&pwm 6 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
-	};
-
-	esc_pwm: esc_pwm {
-		pwms = <&pwm 7 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
-	};
 };
 
 &flash0 {
@@ -201,7 +214,7 @@ zephyr_udc0: &usbd {
 
 &pwm {
 	status = "okay";
-	pinctrl-0 = <&pwm0_default>;
+	pinctrl-0 = <&pwm_default>;
 	pinctrl-names = "default";
 };
 

@@ -1,25 +1,18 @@
-/**
- * @file actuator.c
- * @note Actuator에는 Thruster, Key 뿐만 아니라 LED 등도 포함되지만, 모듈화의 편의를 위해
- *       Thruster, Key를 묶어 Actuator로 취급함
- */
-
 #include <zephyr/drivers/pwm.h>
 
-#include "hwconf.h"
 #include "actuator.h"
 
-static const struct pwm_dt_spec s_servo = HWCONF_SERVO_PWM_SPEC;
-static const struct pwm_dt_spec s_esc = HWCONF_ESC_PWM_SPEC;
+static const struct pwm_dt_spec s_servo = PWM_DT_SPEC_GET(DT_NODELABEL(key));
+static const struct pwm_dt_spec s_esc = PWM_DT_SPEC_GET(DT_NODELABEL(thruster));
 
-static uint16_t s_key_pulse_0_degree = 500;
-static uint16_t s_key_pulse_180_degree = 2500;
+static uint16_t s_key_pulse_0_degree = DT_PROP(DT_NODELABEL(key), pulse_0_degree_us);
+static uint16_t s_key_pulse_180_degree = DT_PROP(DT_NODELABEL(key), pulse_180_degree_us);
 static uint16_t s_key_pulse_now;
 static float s_key_min;
 static float s_key_max = 180;
 
-static uint16_t s_thruster_pulse_0_percentage = 1500;
-static uint16_t s_thruster_pulse_100_percentage = 1900;
+static uint16_t s_thruster_pulse_0_percentage = DT_PROP(DT_NODELABEL(thruster), pulse_0_percent_us);
+static uint16_t s_thruster_pulse_100_percentage = DT_PROP(DT_NODELABEL(thruster), pulse_100_percent_us);
 static uint16_t s_thruster_pulse_now;
 
 static inline int s_set_pulse_us(const struct pwm_dt_spec *spec, uint16_t pulse_us) {
