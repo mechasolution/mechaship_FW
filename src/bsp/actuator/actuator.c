@@ -1,3 +1,5 @@
+// TODO: 뭔가 로직이 꼬여있음. 나중에 리펙토링 한번 진행할것.
+
 #include <zephyr/drivers/pwm.h>
 
 #include "actuator.h"
@@ -25,7 +27,7 @@ bool actuator_init(void) {
   }
 
   s_key_min = 0;
-  s_key_pulse_now = s_key_pulse_0_degree;
+  s_key_pulse_now = (s_key_pulse_0_degree + s_key_pulse_180_degree) / 2;
   s_thruster_pulse_now = s_thruster_pulse_0_percentage;
 
   return s_set_pulse_us(&s_servo, s_key_pulse_now) == 0 && s_set_pulse_us(&s_esc, s_thruster_pulse_now) == 0;
