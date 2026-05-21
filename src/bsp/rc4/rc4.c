@@ -205,8 +205,6 @@ bool rc4_init(void) {
     }
   }
 
-  k_msleep(500);
-
   return true;
 }
 

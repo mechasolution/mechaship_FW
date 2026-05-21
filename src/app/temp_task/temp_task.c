@@ -16,8 +16,6 @@ static void s_test_stop(void) {
 }
 
 static void s_task(void *, void *, void *) {
-  power_set_main(true);
-
   // beeep
   tone_set(741);
   k_msleep(100);

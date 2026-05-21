@@ -32,6 +32,8 @@ bool power_init(void) {
     return false;
   }
 
+  power_set_main(true);
+
   return true;
 }
 
