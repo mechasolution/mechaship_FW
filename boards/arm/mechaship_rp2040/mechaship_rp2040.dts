@@ -98,23 +98,23 @@
 		channel@0 {
 			reg = <0>;
 			function = "steering";
-			input-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
+			input-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
 
-			min-pulse-us = <905>;
+			min-pulse-us = <1000>;
 			mid-pulse-us = <1500>;
-			max-pulse-us = <2095>;
-			pulse-margin-us = <5>;
+			max-pulse-us = <2000>;
+			pulse-margin-us = <0>;
 		};
 
 		channel@1 {
 			reg = <1>;
 			function = "throttle";
-			input-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+			input-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
 
-			min-pulse-us = <1020>;
+			min-pulse-us = <1000>;
 			mid-pulse-us = <1500>;
-			max-pulse-us = <1980>;
-			pulse-margin-us = <5>;
+			max-pulse-us = <2000>;
+			pulse-margin-us = <0>;
 		};
 
 		channel@2 {
