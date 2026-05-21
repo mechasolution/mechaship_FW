@@ -88,6 +88,57 @@
 		};
 	};
 
+	rc_4ch_receiver: rc_4ch_receiver {
+		compatible = "mechaship,fs-r4p-rp2040";
+		status = "okay";
+		pio = <&pio1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@0 {
+			reg = <0>;
+			function = "steering";
+			input-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
+
+			min-pulse-us = <905>;
+			mid-pulse-us = <1500>;
+			max-pulse-us = <2095>;
+			pulse-margin-us = <5>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			function = "throttle";
+			input-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+
+			min-pulse-us = <1020>;
+			mid-pulse-us = <1500>;
+			max-pulse-us = <1980>;
+			pulse-margin-us = <5>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			function = "aux1";
+			input-gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+
+			min-pulse-us = <1000>;
+			mid-pulse-us = <1500>;
+			max-pulse-us = <2000>;
+			pulse-margin-us = <10>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			function = "switch";
+			input-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+
+			default-pulse-us = <1000>;
+			clicked-pulse-us = <2000>;
+			pulse-margin-us = <20>;
+		};
+	};
+
 	zephyr,user {
 		debug-uart = <&uart1>;
 		debug-baudrate = <115200>;
@@ -111,28 +162,7 @@
 		rgbw-led-gpios = <&gpio0 12 GPIO_ACTIVE_HIGH>;
 		rgbw-led-pixel-count = <9>;
 
-		rc-pio-id = <1>;
-		rc-ch1-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
-		rc-ch2-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
-		rc-ch3-gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
-		rc-ch4-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
 
-		rc-throttle-pulse-margin = <20>;
-		rc-throttle-max-pulse = <1980>;
-		rc-throttle-min-pulse = <1020>;
-		rc-throttle-middle = <1500>;
-
-		rc-key-pulse-margin = <5>;
-		rc-key-max-pulse = <2095>;
-		rc-key-min-pulse = <905>;
-		rc-key-middle = <1500>;
-
-		rc-ch3-max-pulse = <2000>;
-		rc-ch3-min-pulse = <1000>;
-		rc-ch3-middle = <1500>;
-
-		rc-ch4-default-pulse = <1000>;
-		rc-ch4-clicked-pulse = <2000>;
 	};
 
 };
@@ -221,4 +251,8 @@ zephyr_udc0: &usbd {
 &vreg {
 	regulator-always-on;
 	regulator-allowed-modes = <REGULATOR_RPI_PICO_MODE_NORMAL>;
+};
+
+&pio1 {
+	status = "okay";
 };

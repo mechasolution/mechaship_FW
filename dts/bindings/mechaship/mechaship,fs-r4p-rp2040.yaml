@@ -1,0 +1,58 @@
+description: Mechaship 4-channel RC PWM receiver configuration using RP2040 PIO
+
+compatible: "mechaship,fs-r4p-rp2040"
+
+properties:
+  pio:
+    type: phandle
+    required: true
+    description: PIO controller used to sample the RC input channels.
+
+child-binding:
+  description: RC receiver channel configuration
+
+  properties:
+    reg:
+      type: int
+      required: true
+      description: Logical channel index used by the receiver driver.
+
+    function:
+      type: string
+      required: true
+      enum:
+        - throttle
+        - steering
+        - aux1
+        - switch
+      description: Semantic role assigned to this RC channel.
+
+    input-gpios:
+      type: phandle-array
+      required: true
+      description: GPIO input connected to this RC channel signal.
+
+    min-pulse-us:
+      type: int
+      description: Minimum valid pulse width in microseconds for analog-style channels.
+
+    mid-pulse-us:
+      type: int
+      description: Center pulse width in microseconds for analog-style channels.
+
+    max-pulse-us:
+      type: int
+      description: Maximum valid pulse width in microseconds for analog-style channels.
+
+    default-pulse-us:
+      type: int
+      description: Default pulse width in microseconds for discrete switch-style channels.
+
+    clicked-pulse-us:
+      type: int
+      description: Active pulse width in microseconds for discrete switch-style channels.
+
+    pulse-margin-us:
+      type: int
+      required: true
+      description: Allowed pulse width tolerance in microseconds.
