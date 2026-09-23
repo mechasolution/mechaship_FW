@@ -19,8 +19,10 @@ static std_msgs__msg__Float32 s_battery_voltage_msg;
 
 static rcl_publisher_t s_emo_status_publisher;
 static std_msgs__msg__Bool s_emo_status_msg;
+static unsigned s_created;
 
 bool publisher_create(rcl_node_t *node) {
+  if (s_created != 0) return false;
   RCCHECK_GOTO(
       TAG,
       rclc_publisher_init_default(
@@ -29,6 +31,7 @@ bool publisher_create(rcl_node_t *node) {
           ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
           "sensor/battery/voltage"),
       publisher_create_failed);
+  s_created = 1;
 
   RCCHECK_GOTO(
       TAG,
@@ -38,6 +41,7 @@ bool publisher_create(rcl_node_t *node) {
           ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
           "sensor/emo/status"),
       publisher_create_failed);
+  s_created = 2;
 
   return true;
 
@@ -46,24 +50,15 @@ publisher_create_failed:
 }
 
 bool publisher_destroy(rcl_node_t *node) {
-  RCCHECK_GOTO(
-      TAG,
-      rcl_publisher_fini(
-          &s_battery_voltage_publisher,
-          node),
-      publisher_destroy_failed);
-
-  RCCHECK_GOTO(
-      TAG,
-      rcl_publisher_fini(
-          &s_emo_status_publisher,
-          node),
-      publisher_destroy_failed);
-
+  if (s_created >= 2) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_publisher_fini(&s_emo_status_publisher, node));
+    s_created = 1;
+  }
+  if (s_created >= 1) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_publisher_fini(&s_battery_voltage_publisher, node));
+    s_created = 0;
+  }
   return true;
-
-publisher_destroy_failed:
-  return false;
 }
 
 bool publisher_publish(uros_pub_data_flag_t data_flag, uros_pub_data_t *data) {

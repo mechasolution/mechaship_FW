@@ -13,6 +13,8 @@ bool actuator_task_init(void);
 bool actuator_task_set_throttle(float percentage);
 bool actuator_task_set_key(float degree);
 bool actuator_task_set_rgbwled(uint8_t red, uint8_t green, uint8_t blue, uint8_t white);
+// Returns true after the actuator task has applied the requested power state.
+// This confirms the MCU GPIO state, not the presence of a physical actuator.
 bool actuator_task_set_power(bool power_target,
                              float key_min_degree,
                              float key_max_degree,

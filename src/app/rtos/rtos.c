@@ -12,24 +12,12 @@
 
 #define TAG "RTOS"
 
-static void s_task_init(void) {
-  bool result;
-
-  result = central_task_init();
-  configASSERT(result);
-
-  result = actuator_task_init();
-  configASSERT(result);
-
-  result = sled_task_init();
-  configASSERT(result);
-
-  result = lcd_task_init();
-  configASSERT(result);
-}
-
-void rtos_init(void) {
-  s_task_init();
+bool rtos_init(void) {
+  if (!central_task_init()) return false;
+  if (!actuator_task_init()) return false;
+  if (!sled_task_init()) return false;
+  if (!lcd_task_init()) return false;
+  return true;
 }
 
 void rtos_start(void) {

@@ -11,11 +11,7 @@
 #include "hal/time/time.h"
 
 bool app_init(void) {
-  bool ret = true;
-
-  rtos_init();
-
-  return ret;
+  return rtos_init();
 }
 
 static bool s_test_battery(void) {

@@ -1,6 +1,7 @@
 #include <FreeRTOS.h>
 #include <queue.h>
 #include <task.h>
+#include <stdatomic.h>
 
 #include "rtos/peripheral_task/actuator_task.h"
 #include "rtos/peripheral_task/lcd_task.h"
@@ -29,7 +30,6 @@ typedef struct {
 
     CENTRAL_TASK_COMMAND_IP,
     CENTRAL_TASK_COMMAND_SBC_CONNECTION,
-    CENTRAL_TASK_COMMAND_POWER_OFF_REQUEST,
   } command;
   union {
     struct { // CENTRAL_TASK_COMMAND_IP
@@ -40,9 +40,6 @@ typedef struct {
       bool status;
     } sbc_connection;
 
-    struct { // CENTRAL_TASK_COMMAND_POWER_OFF_REQUEST
-      bool _;
-    } power_off_request;
   } data;
 } central_task_queue_data_t;
 #define CENTRAL_TASK_QUEUE_LENGTH 4
@@ -55,6 +52,7 @@ static StaticQueue_t s_central_task_queue_struct;
 static TaskHandle_t s_central_task_hd = NULL;
 static StackType_t s_central_task_buff[CENTRAL_TASK_SIZE];
 static StaticTask_t s_central_task_struct;
+static atomic_bool s_power_off_requested;
 
 static void s_ip_changed_melody(void) {
   for (uint8_t i = 0; i < 3; i++) {
@@ -168,31 +166,39 @@ static void s_mode_none_melody(void) {
   actuator_task_set_tone(0, 500);
 }
 
-static void s_update_mode(mode_t curr_mode) {
+static bool s_update_mode(mode_t curr_mode) {
   switch (curr_mode) {
   case MODE_RC:
+    if (!uros_task_deinit() || !rc_task_init()) {
+      log_error(TAG, "Failed to switch to RC mode");
+      return false;
+    }
     log_debug(TAG, "RC MODE");
     led_set_rc_mode(true);
     led_set_ros_mode(false);
     lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_RC);
 
-    uros_task_deinit();
-    rc_task_init();
     break;
 
   case MODE_ROS:
+    if (!rc_task_deinit() || !uros_task_init()) {
+      log_error(TAG, "Failed to switch to ROS mode");
+      return false;
+    }
     log_debug(TAG, "ROS MODE");
 
     led_set_rc_mode(false);
     led_set_ros_mode(true);
     lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_ROS);
 
-    rc_task_deinit();
-    uros_task_init();
     break;
 
   case MODE_NONE:
   default:
+    if (!rc_task_deinit() || !uros_task_deinit()) {
+      log_error(TAG, "Failed to switch to idle mode");
+      return false;
+    }
     log_debug(TAG, "IDLE MODE");
     sled_task_set_pattern(SLED_TASK_PATTERN_BLINK_SLOW);
     s_mode_none_melody();
@@ -201,10 +207,9 @@ static void s_update_mode(mode_t curr_mode) {
     led_set_ros_mode(false);
     lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_NONE);
 
-    rc_task_deinit();
-    uros_task_deinit();
     break;
   }
+  return true;
 }
 
 static void s_process_event(central_task_queue_data_t *queue_data, mode_t current_mode) {
@@ -216,10 +221,6 @@ static void s_process_event(central_task_queue_data_t *queue_data, mode_t curren
     }
 
     lcd_task_update_ip_addr(queue_data->data.ip.ipv4);
-    break;
-
-  case CENTRAL_TASK_COMMAND_POWER_OFF_REQUEST:
-    s_power_off(false);
     break;
 
   case CENTRAL_TASK_COMMAND_NONE:
@@ -236,8 +237,7 @@ static mode_t s_process_mode_change(void) {
   mode_t mode_target = rc4_get_slideswitch();
   if (mode_target == MODE_NO_RC_MODULE) {
     if (current_mode != MODE_ROS) {
-      s_update_mode(MODE_ROS);
-      current_mode = MODE_ROS;
+      if (s_update_mode(MODE_ROS)) current_mode = MODE_ROS;
     }
   } else {
     if (mode_target != current_mode) {
@@ -245,8 +245,7 @@ static mode_t s_process_mode_change(void) {
         mode_temp = mode_target;
         last_mode_tick = xTaskGetTickCount();
       } else if (xTaskGetTickCount() - last_mode_tick >= pdMS_TO_TICKS(300)) {
-        s_update_mode(mode_temp);
-        current_mode = mode_temp;
+        if (s_update_mode(mode_temp)) current_mode = mode_temp;
       }
     }
   }
@@ -316,13 +315,7 @@ static void s_process_low_freq_task(void) {
 }
 
 static void s_power_off_request_event_cb(void) {
-  central_task_queue_data_t data;
-  data.command = CENTRAL_TASK_COMMAND_POWER_OFF_REQUEST;
-  bool ret = xQueueSend(s_central_task_queue_hd, &data, 0);
-
-  if (ret == false) {
-    log_warning(TAG, "Publish queue full!! message dropped!!");
-  }
+  atomic_store(&s_power_off_requested, true);
 }
 
 static void s_central_task(void *arg) {
@@ -331,9 +324,6 @@ static void s_central_task(void *arg) {
 
   sled_task_set_pattern(SLED_TASK_PATTERN_BLINK_SLOW);
   lcd_task_update_ctl_mode(LCD_TASK_CTL_MODE_NONE);
-  mw_sbc_set_ipv4_change_callback(s_sbc_ip_change_cb);
-  mw_sbc_set_connection_change_callback(s_sbc_connection_change_cb);
-  mw_sbc_set_power_off_request_callback(s_power_off_request_event_cb);
 
   vTaskDelay(pdMS_TO_TICKS(100));
 
@@ -345,6 +335,7 @@ static void s_central_task(void *arg) {
     if (xQueueReceive(s_central_task_queue_hd, &queue_data, pdMS_TO_TICKS(50)) == pdTRUE) {
       s_process_event(&queue_data, current_mode);
     }
+    if (atomic_exchange(&s_power_off_requested, false)) s_power_off(false);
 
     // The power switch is physically held during bench tests.
 #ifndef MECHASHIP_TEST_HELD_POWER_SWITCH
@@ -375,5 +366,9 @@ bool central_task_init(void) {
       s_central_task_buff,
       &s_central_task_struct);
 
+  if (s_central_task_queue_hd == NULL || s_central_task_hd == NULL) return false;
+  mw_sbc_set_ipv4_change_callback(s_sbc_ip_change_cb);
+  mw_sbc_set_connection_change_callback(s_sbc_connection_change_cb);
+  mw_sbc_set_power_off_request_callback(s_power_off_request_event_cb);
   return true;
 }

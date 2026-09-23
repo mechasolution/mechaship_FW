@@ -17,6 +17,8 @@ bool led_init(void) {
   gpio_put(HWCONF_PIN_LED_ROS_MODE, false);
   gpio_put(HWCONF_PIN_LED_RC_MODE, false);
   gpio_put(HWCONF_PIN_LED_FAULT, false);
+
+  return true;
 }
 void led_test(bool st) {
   if (st) {

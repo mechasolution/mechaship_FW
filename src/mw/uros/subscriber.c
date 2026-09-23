@@ -40,6 +40,7 @@ static mechaship_interfaces__msg__RgbwLedColor s_rgbw_led_msg;
 static rcl_subscription_t s_ip_addr_subscription;
 static uros_sub_data_flag_t s_ip_addr_msg_flag = UROS_SUB_IP_ADDR;
 static std_msgs__msg__UInt32 s_ip_addr_msg;
+static unsigned s_created;
 
 static void s_subscriber_callback(const void *data, void *data_flag) {
   uros_sub_data_t cb_data = {0};
@@ -94,6 +95,7 @@ bool subscriber_set_callback(uros_sub_callback_t cb) {
 }
 
 bool subscriber_create(rcl_node_t *node) {
+  if (s_created != 0) return false;
   RCCHECK_RETURN_FALSE(
       TAG,
       rclc_subscription_init_default(
@@ -101,6 +103,7 @@ bool subscriber_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
           "actuator/key/degree"));
+  s_created = 1;
 
   RCCHECK_RETURN_FALSE(
       TAG,
@@ -109,6 +112,7 @@ bool subscriber_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64),
           "actuator/thruster/percentage"));
+  s_created = 2;
 
   RCCHECK_RETURN_FALSE(
       TAG,
@@ -117,6 +121,7 @@ bool subscriber_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_MSG_TYPE_SUPPORT(mechaship_interfaces, msg, ToneTopic),
           "actuator/tone/play"));
+  s_created = 3;
 
   RCCHECK_RETURN_FALSE(
       TAG,
@@ -125,6 +130,7 @@ bool subscriber_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_MSG_TYPE_SUPPORT(mechaship_interfaces, msg, RgbwLedColor),
           "actuator/rgbwled/color"));
+  s_created = 4;
 
   RCCHECK_RETURN_FALSE(
       TAG,
@@ -133,41 +139,32 @@ bool subscriber_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, UInt32),
           "system/ip_address_report"));
+  s_created = 5;
 
   return true;
 }
 
 bool subscriber_destroy(rcl_node_t *node) {
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_subscription_fini(
-          &s_key_subscription,
-          node));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_subscription_fini(
-          &s_throttle_subscription,
-          node));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_subscription_fini(
-          &s_tone_subscription,
-          node));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_subscription_fini(
-          &s_rgbw_led_subscription,
-          node));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_subscription_fini(
-          &s_ip_addr_subscription,
-          node));
-
+  if (s_created >= 5) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_subscription_fini(&s_ip_addr_subscription, node));
+    s_created = 4;
+  }
+  if (s_created >= 4) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_subscription_fini(&s_rgbw_led_subscription, node));
+    s_created = 3;
+  }
+  if (s_created >= 3) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_subscription_fini(&s_tone_subscription, node));
+    s_created = 2;
+  }
+  if (s_created >= 2) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_subscription_fini(&s_throttle_subscription, node));
+    s_created = 1;
+  }
+  if (s_created >= 1) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_subscription_fini(&s_key_subscription, node));
+    s_created = 0;
+  }
   return true;
 }
 

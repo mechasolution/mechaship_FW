@@ -1,4 +1,5 @@
 #include <rmw_microros/rmw_microros.h>
+#include <stdatomic.h>
 
 #include "support.h"
 
@@ -17,7 +18,7 @@ typedef enum {
 
   AGENT_DISCONNECTED,
 } agent_state_t;
-static agent_state_t s_agent_state = AGENT_WAIT;
+static atomic_int s_agent_state = AGENT_WAIT;
 
 bool agent_init(void) {
   static bool is_transport_init = false;
@@ -58,7 +59,6 @@ static void s_check_and_action(void) {
     s_agent_state = (true == entity_create()) ? AGENT_CONNECTED : AGENT_WAIT;
     if (s_agent_state == AGENT_WAIT) {
       log_debug(TAG, "AGENT_WAIT");
-      entity_destroy();
     } else {
       log_debug(TAG, "AGENT_CONNECTED");
     }
@@ -74,9 +74,10 @@ static void s_check_and_action(void) {
     entity_spin();
     break;
   case AGENT_DISCONNECTED:
-    entity_destroy();
-    s_agent_state = AGENT_WAIT;
-    log_debug(TAG, "AGENT_WAIT");
+    if (entity_destroy()) {
+      s_agent_state = AGENT_WAIT;
+      log_debug(TAG, "AGENT_WAIT");
+    }
     break;
   default:
     break;

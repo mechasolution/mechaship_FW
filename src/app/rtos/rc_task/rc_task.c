@@ -1,6 +1,8 @@
 #include <math.h>
+#include <stdatomic.h>
 
 #include <FreeRTOS.h>
+#include <semphr.h>
 #include <task.h>
 
 #include "rtos/peripheral_task/actuator_task.h"
@@ -21,6 +23,10 @@
 static TaskHandle_t s_rc_task_hd = NULL;
 static StackType_t s_rc_task_buff[RC_TASK_SIZE];
 static StaticTask_t s_rc_task_struct;
+static SemaphoreHandle_t s_rc_stop_ack;
+static StaticSemaphore_t s_rc_stop_ack_storage;
+static atomic_bool s_rc_running = false;
+static atomic_bool s_rc_stopped = true;
 
 static void s_update_lcd(float throttle, float key) {
   static TickType_t last_update = 0;
@@ -76,70 +82,74 @@ static void s_rander_color(void) {
 }
 
 static void s_rc_task(void *arg) {
-  bool switch_status = rc4_get_switch();
-  sled_task_set_pattern(SLED_TASK_PATTERN_SOLID);
-
-  actuator_task_set_tone(523, 150);
-  actuator_task_set_tone(622, 150);
-  actuator_task_set_tone(739, 150);
-  actuator_task_set_power(true, 0, 180, 500, 2500, 1500, 1900);
-  actuator_task_set_rgbwled(0, 0, 0, 0);
-
+  (void)arg;
   for (;;) {
-    float throttle = rc4_get_throttle_percentage();
-    float key = rc4_get_key_degree();
-    actuator_task_set_throttle(throttle);
-    actuator_task_set_key(key);
-
-    s_update_lcd(throttle, key);
-
-    bool temp = rc4_get_switch();
-    if (switch_status != temp) {
-      switch_status = temp;
-      if (switch_status == false) {
-        vTaskDelay(pdMS_TO_TICKS(10)); // wait until rgbwled set command executed (TODO: use dma on rgbwled driver)
-        actuator_task_set_rgbwled(0, 0, 0, 0);
+    while (!atomic_load(&s_rc_running)) {
+      if (!atomic_load(&s_rc_stopped)) {
+        atomic_store(&s_rc_stopped, true);
+        xSemaphoreGive(s_rc_stop_ack);
       }
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
-    if (switch_status == true) {
-      s_rander_color();
-    }
+    bool switch_status = rc4_get_switch();
+    sled_task_set_pattern(SLED_TASK_PATTERN_SOLID);
 
-    vTaskDelay(pdMS_TO_TICKS(1));
+    actuator_task_set_tone(523, 150);
+    actuator_task_set_tone(622, 150);
+    actuator_task_set_tone(739, 150);
+    actuator_task_set_power(true, 0, 180, 500, 2500, 1500, 1900);
+    actuator_task_set_rgbwled(0, 0, 0, 0);
+
+    while (atomic_load(&s_rc_running)) {
+      float throttle = rc4_get_throttle_percentage();
+      float key = rc4_get_key_degree();
+      actuator_task_set_throttle(throttle);
+      actuator_task_set_key(key);
+
+      s_update_lcd(throttle, key);
+
+      bool temp = rc4_get_switch();
+      if (switch_status != temp) {
+        switch_status = temp;
+        if (switch_status == false) {
+          vTaskDelay(pdMS_TO_TICKS(10)); // wait until rgbwled set command executed (TODO: use dma on rgbwled driver)
+          actuator_task_set_rgbwled(0, 0, 0, 0);
+        }
+      }
+      if (switch_status == true) {
+        s_rander_color();
+      }
+
+      vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    atomic_store(&s_rc_stopped, true);
+    xSemaphoreGive(s_rc_stop_ack);
   }
 }
 
 bool rc_task_init(void) {
-  if (s_rc_task_hd != NULL) {
-    return false;
+  if (atomic_load(&s_rc_running) || !atomic_load(&s_rc_stopped)) return false;
+  if (s_rc_stop_ack == NULL) s_rc_stop_ack = xSemaphoreCreateBinaryStatic(&s_rc_stop_ack_storage);
+  if (s_rc_stop_ack == NULL) return false;
+  if (s_rc_task_hd == NULL) {
+    s_rc_task_hd = xTaskCreateStatic(
+        s_rc_task, "rc", RC_TASK_SIZE, NULL, configIDLE_TASK_PRIORITIES,
+        s_rc_task_buff, &s_rc_task_struct);
   }
-
-  s_rc_task_hd = xTaskCreateStatic(
-      s_rc_task,
-      "rc",
-      RC_TASK_SIZE,
-      NULL,
-      configIDLE_TASK_PRIORITIES,
-      s_rc_task_buff,
-      &s_rc_task_struct);
-
+  if (s_rc_task_hd == NULL) return false;
+  atomic_store(&s_rc_stopped, false);
+  atomic_store(&s_rc_running, true);
   return true;
 }
 
 bool rc_task_deinit(void) {
-  if (s_rc_task_hd == NULL) {
-    // not created
-    return true;
-  }
-
-  eTaskState task_status = eTaskGetState(s_rc_task_hd);
-  vTaskDelete(s_rc_task_hd);
-  s_rc_task_hd = NULL;
-
-  vTaskDelay(pdMS_TO_TICKS(10)); // wait until rgbwled set command executed (TODO: use dma on rgbwled driver)
-
+  if (!atomic_exchange(&s_rc_running, false)) return atomic_load(&s_rc_stopped);
+  xSemaphoreTake(s_rc_stop_ack, 0);
   actuator_task_set_power(false, 0.0, 0.0, 0.0, 0, 0, 0);
+  if (xSemaphoreTake(s_rc_stop_ack, pdMS_TO_TICKS(1000)) != pdTRUE) {
+    log_error(TAG, "RC task stop timed out");
+    return false;
+  }
   actuator_task_set_rgbwled(0, 0, 0, 0);
-
   return true;
 }

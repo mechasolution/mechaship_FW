@@ -57,7 +57,7 @@ bool sled_task_init(void) {
       s_sled_task_queue_buff,
       &s_sled_task_queue_struct);
 
-  xTaskCreateStatic(
+  TaskHandle_t task = xTaskCreateStatic(
       s_sled_task,
       "sled",
       SLED_TASK_SIZE,
@@ -66,7 +66,7 @@ bool sled_task_init(void) {
       s_sled_task_buff,
       &s_sled_task_struct);
 
-  return true;
+  return s_sled_task_queue_hd != NULL && task != NULL;
 }
 
 bool sled_task_set_pattern(sled_task_pattern_t pattern) {

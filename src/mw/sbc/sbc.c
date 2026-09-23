@@ -11,10 +11,9 @@
 #include <pb_decode.h>
 #include <pb_encode.h>
 
-#include "cobs/cobs.h" // https://github.com/cmcqueen/cobs-c
-#include "crc32/crc32.h"
 #include "nanopb/messages.pb.h"
 #include "ringbuffer/ringbuffer.h" // https://github.com/AndersKaloer/Ring-Buffer
+#include "sbc_packet.h"
 
 #include "tusb/tusb_.h"
 
@@ -24,7 +23,7 @@
 
 #define TAG "mw/sbc"
 
-#define PACKET_MAX_LEN 64 // expected
+#define PACKET_MAX_LEN SBC_PACKET_MAX_LEN
 
 #ifndef BUILD_EPOCH
 #define BUILD_EPOCH 0
@@ -142,7 +141,7 @@ static size_t s_nanopb_encode(char *buff, size_t buff_len, snd_task_queue_data_t
     return 0;
   }
 
-  ToSbcMessage pb_struct;
+  ToSbcMessage pb_struct = {0};
   switch (qdata->command) {
   case SND_TASK_COMMAND_BATTERY_INFO:
     pb_struct.which_data = ToSbcMessage_battery_info_tag;
@@ -213,31 +212,28 @@ static void s_snd_task(void *arg) {
       continue;
     }
 
-    // add CRC32
-    uint32_t crc32 = crc32_calc(pb_buff, pb_encoded_size);
-    memcpy(&pb_buff[pb_encoded_size], &crc32, sizeof(crc32));
-    pb_encoded_size += 4;
+    uint8_t frame[PACKET_MAX_LEN];
+    size_t frame_len;
+    if (!sbc_packet_encode((const uint8_t *)pb_buff, pb_encoded_size,
+                           frame, sizeof(frame), &frame_len)) continue;
 
-    // COBS encoding
-    char cobs_buff[PACKET_MAX_LEN];
-    cobs_encode_result cobs_res = cobs_encode(cobs_buff, sizeof(cobs_buff) - 1, pb_buff, pb_encoded_size);
-    if (cobs_res.status != COBS_ENCODE_OK) {
-      continue;
-    }
-    cobs_buff[cobs_res.out_len] = '\0';
-    cobs_res.out_len++;
-
-    // send
-    if (tud_cdc_n_connected(1)) {
-      tud_cdc_n_write(1, cobs_buff, cobs_res.out_len);
+    size_t sent = 0;
+    TickType_t start = xTaskGetTickCount();
+    while (sent < frame_len && tud_cdc_n_connected(1) &&
+           xTaskGetTickCount() - start < pdMS_TO_TICKS(100)) {
+      uint32_t written = tud_cdc_n_write(1, frame + sent, frame_len - sent);
+      sent += written;
       tud_cdc_n_write_flush(1);
+      if (written == 0) vTaskDelay(pdMS_TO_TICKS(1));
     }
+    if (sent != frame_len) log_warning(TAG, "SBC frame write incomplete");
   }
 }
 
 static void s_process_rx(ToMcuMessage *pb_struct) {
   switch (pb_struct->which_data) {
   case ToMcuMessage_ip_info_tag: {
+    if (pb_struct->data.ip_info.ipv4.size != 4) break;
     uint32_t curr_ip =
         ((uint32_t)pb_struct->data.ip_info.ipv4.bytes[0] << 24) |
         ((uint32_t)pb_struct->data.ip_info.ipv4.bytes[1] << 16) |
@@ -372,30 +368,13 @@ static void s_rcv_task(void *arg) {
       memcpy(packet_buff + ring_buff_item_cnt, chunk_buff_ptr, len_to_copy);
       size_t packet_buff_size = ring_buff_item_cnt + len_to_copy;
 
-      // COBS decoding
-      if (packet_buff_size == 0) {
-        goto decode_failed;
-      }
-      packet_buff_size--; // remove '\0'
-      char cobs_dec_buff[PACKET_MAX_LEN];
-      cobs_decode_result cobs_res = cobs_decode(cobs_dec_buff, sizeof(cobs_dec_buff), packet_buff, packet_buff_size);
-      if (cobs_res.status != COBS_DECODE_OK) {
-        goto decode_failed;
-      }
+      uint8_t payload[PACKET_MAX_LEN];
+      size_t payload_len;
+      if (!sbc_packet_decode((const uint8_t *)packet_buff, packet_buff_size,
+                             payload, sizeof(payload), &payload_len)) goto decode_failed;
 
-      // CRC32 check
-      if (cobs_res.out_len < 4) {
-        goto decode_failed;
-      }
-      uint32_t crc32 = crc32_calc(cobs_dec_buff, cobs_res.out_len - 4);
-      int crc32_res = memcmp(&crc32, cobs_dec_buff + (cobs_res.out_len - 4), sizeof(uint32_t));
-      if (crc32_res != 0) {
-        goto decode_failed;
-      }
-
-      // protobuff decoding
-      ToMcuMessage pb_struct;
-      pb_istream_t stream = pb_istream_from_buffer(cobs_dec_buff, cobs_res.out_len - 4);
+      ToMcuMessage pb_struct = {0};
+      pb_istream_t stream = pb_istream_from_buffer(payload, payload_len);
       bool pb_res = pb_decode(&stream, ToMcuMessage_fields, &pb_struct);
       if (pb_res == false) {
         goto decode_failed;
@@ -447,7 +426,8 @@ bool mw_sbc_init(void) {
       &s_rcv_task_struct,
       1U << 0);
 
-  return true;
+  return s_snd_task_queue_hd != NULL && s_rcv_stream_buffer_hd != NULL &&
+         s_snd_task_hd != NULL && s_rcv_task_hd != NULL;
 }
 
 static bool s_send_queue(snd_task_queue_data_t *queue_data) {

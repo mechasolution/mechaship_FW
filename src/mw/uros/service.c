@@ -33,6 +33,7 @@ static rcl_service_t s_tone_service;
 static uros_srv_req_flag_t s_tone_flag = UROS_SRV_TONE;
 static mechaship_interfaces__srv__Tone_Request s_tone_req;
 static mechaship_interfaces__srv__Tone_Response s_tone_res;
+static unsigned s_created;
 
 static void s_service_callback(const void *req, void *res, void *req_flag) {
   uros_srv_req_t cb_req = {0};
@@ -80,6 +81,7 @@ static void s_service_callback(const void *req, void *res, void *req_flag) {
 }
 
 bool service_create(rcl_node_t *node) {
+  if (s_created != 0) return false;
   RCCHECK_RETURN_FALSE(
       TAG,
       rclc_service_init_default(
@@ -87,6 +89,7 @@ bool service_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_SRV_TYPE_SUPPORT(mechaship_interfaces, srv, ActuatorEnable),
           "system/actuator/enable"));
+  s_created = 1;
 
   RCCHECK_RETURN_FALSE(
       TAG,
@@ -95,6 +98,7 @@ bool service_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_SRV_TYPE_SUPPORT(mechaship_interfaces, srv, ActuatorDisable),
           "system/actuator/disable"));
+  s_created = 2;
 
   RCCHECK_RETURN_FALSE(
       TAG,
@@ -103,29 +107,24 @@ bool service_create(rcl_node_t *node) {
           node,
           ROSIDL_GET_SRV_TYPE_SUPPORT(mechaship_interfaces, srv, Tone),
           "actuator/tone/addqueue"));
+  s_created = 3;
 
   return true;
 }
 
 bool service_destroy(rcl_node_t *node) {
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_service_fini(
-          &s_actuator_enable_service,
-          node));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_service_fini(
-          &s_actuator_disable_service,
-          node));
-
-  RCCHECK_RETURN_FALSE(
-      TAG,
-      rcl_service_fini(
-          &s_tone_service,
-          node));
-
+  if (s_created >= 3) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_service_fini(&s_tone_service, node));
+    s_created = 2;
+  }
+  if (s_created >= 2) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_service_fini(&s_actuator_disable_service, node));
+    s_created = 1;
+  }
+  if (s_created >= 1) {
+    RCCHECK_RETURN_FALSE(TAG, rcl_service_fini(&s_actuator_enable_service, node));
+    s_created = 0;
+  }
   return true;
 }
 

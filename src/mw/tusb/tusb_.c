@@ -89,7 +89,7 @@ bool mw_tusb_init(void) {
       &s_tusb_task_struct,
       1U << 0);
 
-  return s_tusb_task_hd != NULL;
+  return s_tusb_task_hd != NULL && s_tusb_status_check_timer_hd != NULL;
 }
 
 void mw_tusb_set_cdc0_callback(tusb_cdc0_rx_cb cb) {

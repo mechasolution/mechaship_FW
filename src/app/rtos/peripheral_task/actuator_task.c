@@ -1,5 +1,11 @@
+#include <math.h>
+#include <stdatomic.h>
+#include <stdint.h>
+#include <string.h>
+
 #include <FreeRTOS.h>
 #include <queue.h>
+#include <semphr.h>
 #include <task.h>
 
 #include "driver/actuator/actuator.h"
@@ -24,14 +30,6 @@ typedef struct {
     ACTUATOR_TASK_COMMAND_TONE,
   } command;
   union {
-    struct { // ACTUATOR_TASK_COMMAND_THROTTLE
-      float percentage;
-    } throttle;
-
-    struct { // ACTUATOR_TASK_COMMAND_KEY
-      float degree;
-    } key;
-
     struct { // ACTUATOR_TASK_COMMAND_RGBWLED
       uint8_t red;
       uint8_t green;
@@ -40,6 +38,7 @@ typedef struct {
     } rgbwled;
 
     struct { // ACTUATOR_TASK_COMMAND_POWER
+      uint32_t request_id;
       bool power_target;
 
       float key_min_degree; // 키 최소 각도
@@ -68,6 +67,21 @@ static StaticQueue_t s_actuator_queue_struct;
 #define ACTUATOR_TASK_SIZE 512
 static StackType_t s_actuator_task_buff[ACTUATOR_TASK_SIZE];
 static StaticTask_t s_actuator_task_struct;
+_Static_assert(sizeof(float) == sizeof(uint32_t), "motion value must fit in 32 bits");
+static atomic_uint s_latest_throttle_bits;
+static atomic_uint s_latest_key_bits;
+static atomic_bool s_throttle_pending;
+static atomic_bool s_key_pending;
+typedef struct {
+  uint32_t request_id;
+  bool applied;
+} power_ack_t;
+static QueueHandle_t s_power_ack_queue;
+static uint8_t s_power_ack_storage[sizeof(power_ack_t)];
+static StaticQueue_t s_power_ack_queue_struct;
+static SemaphoreHandle_t s_power_request_mutex;
+static StaticSemaphore_t s_power_request_mutex_struct;
+static uint32_t s_next_power_request_id;
 
 #define TONE_TASK_SIZE configMINIMAL_STACK_SIZE
 static StackType_t s_tone_task_buff[TONE_TASK_SIZE];
@@ -93,14 +107,22 @@ static void s_actuator_task(void *arg) {
     if (xQueueReceive(s_actuator_task_queue_hd, &queue_data, portMAX_DELAY) == pdTRUE) {
       switch (queue_data.command) {
       case ACTUATOR_TASK_COMMAND_THROTTLE:
+        atomic_store(&s_throttle_pending, false);
         if (power_get_act()) {
-          actuator_set_thruster_percentage(queue_data.data.throttle.percentage);
+          uint32_t bits = atomic_load(&s_latest_throttle_bits);
+          float percentage;
+          memcpy(&percentage, &bits, sizeof(percentage));
+          actuator_set_thruster_percentage(percentage);
         }
         break;
 
       case ACTUATOR_TASK_COMMAND_KEY:
+        atomic_store(&s_key_pending, false);
         if (power_get_act()) {
-          actuator_set_key_degree(queue_data.data.key.degree);
+          uint32_t bits = atomic_load(&s_latest_key_bits);
+          float degree;
+          memcpy(&degree, &bits, sizeof(degree));
+          actuator_set_key_degree(degree);
         }
         break;
 
@@ -112,41 +134,42 @@ static void s_actuator_task(void *arg) {
             queue_data.data.rgbwled.white));
         break;
 
-      case ACTUATOR_TASK_COMMAND_POWER:
-        if (power_get_act() == queue_data.data.power.power_target) {
-          break;
-        }
+      case ACTUATOR_TASK_COMMAND_POWER: {
+        bool target = queue_data.data.power.power_target;
+        if (power_get_act() != target || target) {
+          lcd_task_update_actuator_power(target);
+          if (target) {
+            lcd_task_update_key(90);
+            lcd_task_update_throttle(0);
+            if (queue_data.data.power.key_pulse_180_degree == 0 && queue_data.data.power.thruster_pulse_100_percentage == 0) {
+              // Existing bench-test defaults for an empty calibration request.
+              queue_data.data.power.key_min_degree = 0;
+              queue_data.data.power.key_max_degree = 180;
+              queue_data.data.power.key_pulse_0_degree = 500;
+              queue_data.data.power.key_pulse_180_degree = 2500;
+              queue_data.data.power.thruster_pulse_0_percentage = 1500;
+              queue_data.data.power.thruster_pulse_100_percentage = 1900;
+            }
 
-        lcd_task_update_actuator_power(queue_data.data.power.power_target);
-        if (queue_data.data.power.power_target == true) {
-          lcd_task_update_key(90);
-          lcd_task_update_throttle(0);
-          if (queue_data.data.power.key_pulse_180_degree == 0 && queue_data.data.power.thruster_pulse_100_percentage == 0) {
-            // if data is all zero, set test value (for debug)
-            queue_data.data.power.key_min_degree = 0;
-            queue_data.data.power.key_max_degree = 180;
-            queue_data.data.power.key_pulse_0_degree = 500;
-            queue_data.data.power.key_pulse_180_degree = 2500;
-            queue_data.data.power.thruster_pulse_0_percentage = 1500;
-            queue_data.data.power.thruster_pulse_100_percentage = 1900;
+            actuator_set_key_info(queue_data.data.power.key_pulse_0_degree,
+                                  queue_data.data.power.key_pulse_180_degree,
+                                  queue_data.data.power.key_min_degree,
+                                  queue_data.data.power.key_max_degree);
+            actuator_set_thruster_info(queue_data.data.power.thruster_pulse_0_percentage,
+                                       queue_data.data.power.thruster_pulse_100_percentage);
+
+            actuator_set_key_degree(90);
+            actuator_set_thruster_percentage(0);
+            power_set_act(true);
+          } else {
+            power_set_act(false);
+            actuator_pwm_off();
           }
-
-          actuator_set_key_info(queue_data.data.power.key_pulse_0_degree,
-                                queue_data.data.power.key_pulse_180_degree,
-                                queue_data.data.power.key_min_degree,
-                                queue_data.data.power.key_max_degree);
-          actuator_set_thruster_info(queue_data.data.power.thruster_pulse_0_percentage,
-                                     queue_data.data.power.thruster_pulse_100_percentage);
-
-          actuator_set_key_degree(90);
-          actuator_set_thruster_percentage(0);
-
-          power_set_act(true);
-        } else {
-          power_set_act(false);
-          actuator_pwm_off();
         }
+        power_ack_t ack = {queue_data.data.power.request_id, power_get_act() == target};
+        xQueueOverwrite(s_power_ack_queue, &ack);
         break;
+      }
 
       case ACTUATOR_TASK_COMMAND_TONE:
         tone_queue_data.duration_ms = queue_data.data.tone.duration_ms;
@@ -191,8 +214,11 @@ bool actuator_task_init(void) {
       TONE_TASK_QUEUE_ITEM_SIZE,
       s_tone_task_queue_buff,
       &s_tone_task_queue_struct);
+  s_power_ack_queue = xQueueCreateStatic(
+      1, sizeof(power_ack_t), s_power_ack_storage, &s_power_ack_queue_struct);
+  s_power_request_mutex = xSemaphoreCreateMutexStatic(&s_power_request_mutex_struct);
 
-  xTaskCreateStatic(
+  TaskHandle_t actuator_task = xTaskCreateStatic(
       s_actuator_task,
       "actuator",
       ACTUATOR_TASK_SIZE,
@@ -201,7 +227,7 @@ bool actuator_task_init(void) {
       s_actuator_task_buff,
       &s_actuator_task_struct);
 
-  xTaskCreateStatic(
+  TaskHandle_t tone_task = xTaskCreateStatic(
       s_tone_task,
       "tone",
       TONE_TASK_SIZE,
@@ -210,10 +236,13 @@ bool actuator_task_init(void) {
       s_tone_task_buff,
       &s_tone_task_struct);
 
-  return true;
+  return s_actuator_task_queue_hd != NULL && s_tone_task_queue_hd != NULL &&
+         s_power_ack_queue != NULL && s_power_request_mutex != NULL &&
+         actuator_task != NULL && tone_task != NULL;
 }
 
 static bool s_send_queue(actuator_task_queue_data_t *queue_data) {
+  if (s_actuator_task_queue_hd == NULL) return false;
   bool ret = xQueueSend(s_actuator_task_queue_hd, queue_data, 0) == pdTRUE;
   if (ret == false) {
     log_warning(TAG, "Publish queue full!! message dropped!!");
@@ -223,19 +252,29 @@ static bool s_send_queue(actuator_task_queue_data_t *queue_data) {
 }
 
 bool actuator_task_set_throttle(float percentage) {
+  if (!isfinite(percentage)) return false;
+  uint32_t bits;
+  memcpy(&bits, &percentage, sizeof(bits));
+  atomic_store(&s_latest_throttle_bits, bits);
+  if (atomic_exchange(&s_throttle_pending, true)) return true;
   actuator_task_queue_data_t queue_data;
   queue_data.command = ACTUATOR_TASK_COMMAND_THROTTLE;
-  queue_data.data.throttle.percentage = percentage;
-
-  return s_send_queue(&queue_data);
+  if (s_send_queue(&queue_data)) return true;
+  atomic_store(&s_throttle_pending, false);
+  return false;
 }
 
 bool actuator_task_set_key(float degree) {
+  if (!isfinite(degree)) return false;
+  uint32_t bits;
+  memcpy(&bits, &degree, sizeof(bits));
+  atomic_store(&s_latest_key_bits, bits);
+  if (atomic_exchange(&s_key_pending, true)) return true;
   actuator_task_queue_data_t queue_data;
   queue_data.command = ACTUATOR_TASK_COMMAND_KEY;
-  queue_data.data.key.degree = degree;
-
-  return s_send_queue(&queue_data);
+  if (s_send_queue(&queue_data)) return true;
+  atomic_store(&s_key_pending, false);
+  return false;
 }
 
 bool actuator_task_set_rgbwled(uint8_t red, uint8_t green, uint8_t blue, uint8_t white) {
@@ -256,8 +295,19 @@ bool actuator_task_set_power(bool power_target,
                              uint16_t key_pulse_180_degree,
                              uint16_t thruster_pulse_0_percentage,
                              uint16_t thruster_pulse_100_percentage) {
-  actuator_task_queue_data_t queue_data;
+  if (s_actuator_task_queue_hd == NULL || s_power_ack_queue == NULL || s_power_request_mutex == NULL) return false;
+  if (power_target && (key_pulse_180_degree != 0 || thruster_pulse_100_percentage != 0)) {
+    if (!isfinite(key_min_degree) || !isfinite(key_max_degree) ||
+        key_min_degree < 0 || key_max_degree > 180 || key_min_degree > key_max_degree ||
+        key_pulse_0_degree > 20000 || key_pulse_180_degree > 20000 ||
+        thruster_pulse_0_percentage > 20000 || thruster_pulse_100_percentage > 20000) {
+      return false;
+    }
+  }
+  if (xSemaphoreTake(s_power_request_mutex, pdMS_TO_TICKS(1500)) != pdTRUE) return false;
+  actuator_task_queue_data_t queue_data = {0};
   queue_data.command = ACTUATOR_TASK_COMMAND_POWER;
+  queue_data.data.power.request_id = ++s_next_power_request_id;
   queue_data.data.power.power_target = power_target;
   queue_data.data.power.key_min_degree = key_min_degree;
   queue_data.data.power.key_max_degree = key_max_degree;
@@ -266,7 +316,36 @@ bool actuator_task_set_power(bool power_target,
   queue_data.data.power.thruster_pulse_0_percentage = thruster_pulse_0_percentage;
   queue_data.data.power.thruster_pulse_100_percentage = thruster_pulse_100_percentage;
 
-  return s_send_queue(&queue_data);
+  bool queued;
+  xQueueReset(s_power_ack_queue);
+  if (!power_target) {
+    // Old motion commands must not delay or follow a power-off request.
+    xQueueReset(s_actuator_task_queue_hd);
+    atomic_store(&s_throttle_pending, false);
+    atomic_store(&s_key_pending, false);
+    queued = xQueueSendToFront(s_actuator_task_queue_hd, &queue_data, 0) == pdTRUE;
+  } else {
+    queued = s_send_queue(&queue_data);
+  }
+  if (!queued) {
+    xSemaphoreGive(s_power_request_mutex);
+    return false;
+  }
+
+  const TickType_t wait_ticks = pdMS_TO_TICKS(1000);
+  TickType_t start = xTaskGetTickCount();
+  power_ack_t ack;
+  bool applied = false;
+  while (xTaskGetTickCount() - start < wait_ticks) {
+    TickType_t remaining = wait_ticks - (xTaskGetTickCount() - start);
+    if (xQueueReceive(s_power_ack_queue, &ack, remaining) == pdTRUE &&
+        ack.request_id == queue_data.data.power.request_id) {
+      applied = ack.applied;
+      break;
+    }
+  }
+  xSemaphoreGive(s_power_request_mutex);
+  return applied;
 }
 
 bool actuator_task_set_tone(uint16_t hz, uint16_t duration_ms) {

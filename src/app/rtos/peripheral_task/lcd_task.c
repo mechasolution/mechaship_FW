@@ -1,5 +1,6 @@
 #include <memory.h>
 #include <stdio.h>
+#include <stdatomic.h>
 #include <string.h>
 
 #include <FreeRTOS.h>
@@ -75,8 +76,6 @@ typedef struct {
     LCD_TASK_COMMAND_CONNECTION,
     LCD_TASK_COMMAND_ACT_POWER,
     LCD_TASK_COMMAND_IP_ADDR,
-    LCD_TASK_COMMAND_KEY,
-    LCD_TASK_COMMAND_THROTTLE,
     LCD_TASK_COMMAND_POWER_OFF,
     LCD_TASK_COMMAND_NETWORK_INFO,
     LCD_TASK_COMMAND_PING,
@@ -102,14 +101,6 @@ typedef struct {
     struct { // LCD_TASK_COMMAND_IP_ADDR
       uint32_t ipv4;
     } ip_addr;
-
-    struct { // LCD_TASK_COMMAND_KEY
-      uint8_t degree;
-    } key;
-
-    struct { // LCD_TASK_COMMAND_THROTTLE
-      int8_t percentage;
-    } throttle;
 
     struct { // LCD_TASK_COMMAND_POWER_OFF
       uint8_t countdown;
@@ -154,6 +145,8 @@ static StaticQueue_t s_lcd_task_queue_struct;
 static TaskHandle_t s_lcd_task_hd = NULL;
 static StackType_t s_lcd_task_buff[LCD_TASK_SIZE];
 static StaticTask_t s_lcd_task_struct;
+static atomic_uchar s_latest_key;
+static atomic_schar s_latest_throttle;
 
 static TimerHandle_t s_frame_generation_timer_hd = NULL;
 static StaticTimer_t s_frame_generation_timer_buff;
@@ -233,7 +226,7 @@ static void s_power_off(void) {
     if (xQueueReceive(s_lcd_task_queue_hd, &lcd_queue_data, portMAX_DELAY) == pdTRUE) {
       switch (lcd_queue_data.command) {
       case LCD_TASK_COMMAND_POWER_OFF:
-        sprintf(line_buff, "Power off in %d", lcd_queue_data.data.power_off.countdown);
+        snprintf(line_buff, sizeof(line_buff), "Power off in %d", lcd_queue_data.data.power_off.countdown);
         for (uint8_t i = 0; i < 16; i++) { // fill blank
           if (line_buff[i] == 0) {
             for (uint8_t j = i; j < 16; j++) {
@@ -349,27 +342,27 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
 
       switch (lcd_data->main.usb_connection) {
       case USB_CONNECTION_0:
-        sprintf(line_buff, "Disconnected   ");
+        snprintf(line_buff, sizeof(line_buff), "Disconnected   ");
         break;
 
       case USB_CONNECTION_1:
-        sprintf(line_buff, "USB Connected  ");
+        snprintf(line_buff, sizeof(line_buff), "USB Connected  ");
         break;
 
       case USB_CONNECTION_2:
-        sprintf(line_buff, "SBC Connected  ");
+        snprintf(line_buff, sizeof(line_buff), "SBC Connected  ");
         break;
 
       case USB_CONNECTION_3:
-        sprintf(line_buff, "UROS Connected ");
+        snprintf(line_buff, sizeof(line_buff), "UROS Connected ");
         break;
 
       case USB_CONNECTION_4:
-        sprintf(line_buff, "SBC Connected  ");
+        snprintf(line_buff, sizeof(line_buff), "SBC Connected  ");
         break;
 
       default:
-        sprintf(line_buff, "               ");
+        snprintf(line_buff, sizeof(line_buff), "               ");
         break;
       }
 
@@ -382,13 +375,13 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
       char line_buff[16 + 1] = {0};
 
       if (lcd_data->main.ipv4 == 0) {
-        sprintf(line_buff, "Waiting IP     ");
+        snprintf(line_buff, sizeof(line_buff), "Waiting IP     ");
       } else {
         uint8_t octet1 = (lcd_data->main.ipv4 >> 24) & 0xFF;
         uint8_t octet2 = (lcd_data->main.ipv4 >> 16) & 0xFF;
         uint8_t octet3 = (lcd_data->main.ipv4 >> 8) & 0xFF;
         uint8_t octet4 = lcd_data->main.ipv4 & 0xFF;
-        sprintf(line_buff, "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
+        snprintf(line_buff, sizeof(line_buff), "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
       }
       for (uint8_t i = 0; i < 15; i++) { // fill blank
         if (line_buff[i] == 0) {
@@ -442,12 +435,12 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
       char line_buff[16 + 1] = {0};
 
       if (lcd_data->main.throttle == 0) {
-        sprintf(line_buff, "T OFF");
+        snprintf(line_buff, sizeof(line_buff), "T OFF");
       } else if (lcd_data->main.throttle > 0) {
-        sprintf(line_buff, "T+%3d", lcd_data->main.throttle);
+        snprintf(line_buff, sizeof(line_buff), "T+%3d", lcd_data->main.throttle);
       } else {
         lcd_data->main.throttle *= -1;
-        sprintf(line_buff, "T-%3d", lcd_data->main.throttle);
+        snprintf(line_buff, sizeof(line_buff), "T-%3d", lcd_data->main.throttle);
       }
 
       lcd_set_cursor(1, 0);
@@ -460,7 +453,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     if (lcd_data->main.actuator_power == true) {
       char line_buff[16 + 1] = {0};
 
-      sprintf(line_buff + 5, " K%3d  ", lcd_data->main.key);
+      snprintf(line_buff + 5, sizeof(line_buff) - 5, " K%3d  ", lcd_data->main.key);
 
       lcd_set_cursor(1, 5);
       for (uint8_t i = 5; i < 12; i++) {
@@ -472,7 +465,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     {
       char line_buff[16 + 1] = {0};
 
-      sprintf(line_buff, "B%3d", (int)battery_get_percentage());
+      snprintf(line_buff, sizeof(line_buff), "B%3d", (int)battery_get_percentage());
 
       lcd_set_cursor(1, 12);
       lcd_set_string(line_buff);
@@ -494,21 +487,22 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
 
       if (lcd_data->info_swap == false) { // SSID / LAN
         if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_WLAN) {
-          memcpy(line_buff, lcd_data->network.ssid, 17);
+          memcpy(line_buff, lcd_data->network.ssid, 16);
+          line_buff[16] = '\0';
         } else if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_LAN) {
-          sprintf(line_buff, "**LAN**");
+          snprintf(line_buff, sizeof(line_buff), "**LAN**");
         } else if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_NONE) {
-          sprintf(line_buff, "**NO Network**");
+          snprintf(line_buff, sizeof(line_buff), "**NO Network**");
         }
       } else { // IP
         if (lcd_data->main.ipv4 == 0) {
-          sprintf(line_buff, "Waiting IP");
+          snprintf(line_buff, sizeof(line_buff), "Waiting IP");
         } else {
           uint8_t octet1 = (lcd_data->main.ipv4 >> 24) & 0xFF;
           uint8_t octet2 = (lcd_data->main.ipv4 >> 16) & 0xFF;
           uint8_t octet3 = (lcd_data->main.ipv4 >> 8) & 0xFF;
           uint8_t octet4 = lcd_data->main.ipv4 & 0xFF;
-          sprintf(line_buff, "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
+          snprintf(line_buff, sizeof(line_buff), "%d.%d.%d.%d", octet1, octet2, octet3, octet4);
         }
       }
 
@@ -531,14 +525,14 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
       char line_buff[16 + 1] = {0};
 
       if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_NONE) {
-        sprintf(line_buff, "NONE    %6.1fms", lcd_data->network.ping_ms);
+        snprintf(line_buff, sizeof(line_buff), "NONE    %6.1fms", lcd_data->network.ping_ms);
       } else if (lcd_data->network.network_type == LCD_TASK_NETWORK_INFO_LAN) {
-        sprintf(line_buff, "LAN     %6.1fms", lcd_data->network.ping_ms);
+        snprintf(line_buff, sizeof(line_buff), "LAN     %6.1fms", lcd_data->network.ping_ms);
       } else {
         if (lcd_data->info_swap == false) { // rssi
-          sprintf(line_buff, "%4ddBm %6.1fms", (int)lcd_data->network.rssi, lcd_data->network.ping_ms);
+          snprintf(line_buff, sizeof(line_buff), "%4ddBm %6.1fms", (int)lcd_data->network.rssi, lcd_data->network.ping_ms);
         } else { // channel
-          sprintf(line_buff, "%4dmHz %6.1fms", (int)lcd_data->network.frequency, lcd_data->network.ping_ms);
+          snprintf(line_buff, sizeof(line_buff), "%4dmHz %6.1fms", (int)lcd_data->network.frequency, lcd_data->network.ping_ms);
         }
       }
 
@@ -553,7 +547,7 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     {
       char line_buff[16 + 1] = {0};
 
-      sprintf(line_buff, "%5.2fV / %4.1f%%", battery_get_voltage(), battery_get_percentage());
+      snprintf(line_buff, sizeof(line_buff), "%5.2fV / %4.1f%%", battery_get_voltage(), battery_get_percentage());
       for (uint8_t i = 0; i < 17; i++) { // fill blank
         if (line_buff[i] == 0) {
           for (uint8_t j = i; j < 17; j++) {
@@ -575,11 +569,11 @@ static void s_lcd_update(lcd_menu_data_t *lcd_data) {
     {
       char line_buff[16 + 1] = {0};
 
-      sprintf(line_buff, "C1 %4d  C2 %4d", rc4_get_ch1_pulsewidth(), rc4_get_ch2_pulsewidth());
+      snprintf(line_buff, sizeof(line_buff), "C1 %4d  C2 %4d", rc4_get_ch1_pulsewidth(), rc4_get_ch2_pulsewidth());
       lcd_set_cursor(0, 0);
       lcd_set_string(line_buff);
 
-      sprintf(line_buff, "C3 %4d  C4 %4d", rc4_get_ch3_pulsewidth(), rc4_get_ch4_pulsewidth());
+      snprintf(line_buff, sizeof(line_buff), "C3 %4d  C4 %4d", rc4_get_ch3_pulsewidth(), rc4_get_ch4_pulsewidth());
       lcd_set_cursor(1, 0);
       lcd_set_string(line_buff);
     }
@@ -628,14 +622,6 @@ static void s_lcd_task(void *arg) {
         lcd_data.main.ipv4_changed = true;
         break;
 
-      case LCD_TASK_COMMAND_KEY:
-        lcd_data.main.key = lcd_queue_data.data.key.degree;
-        break;
-
-      case LCD_TASK_COMMAND_THROTTLE:
-        lcd_data.main.throttle = lcd_queue_data.data.throttle.percentage;
-        break;
-
       case LCD_TASK_COMMAND_POWER_OFF:
         xQueueSendToFront(s_lcd_task_queue_hd, &lcd_queue_data, 0);
         s_power_off();
@@ -653,11 +639,15 @@ static void s_lcd_task(void *arg) {
         break;
 
       case LCD_TASK_COMMAND_FRAME:
+        lcd_data.main.key = atomic_load(&s_latest_key);
+        lcd_data.main.throttle = atomic_load(&s_latest_throttle);
         s_lcd_update(&lcd_data);
         lcd_next_frame();
         break;
 
       case LCD_TASK_COMMAND_FORCE_REINIT:
+        lcd_data.main.key = atomic_load(&s_latest_key);
+        lcd_data.main.throttle = atomic_load(&s_latest_throttle);
         s_lcd_update(&lcd_data);
         lcd_reinit_device();
         break;
@@ -733,7 +723,9 @@ bool lcd_task_init(void) {
       s_network_menu_frequent_job_timer_callback,
       &s_network_menu_frequent_job_timer_buff);
 
-  return true;
+  return s_lcd_task_queue_hd != NULL && s_lcd_task_hd != NULL &&
+         s_frame_generation_timer_hd != NULL && s_info_swap_timer_hd != NULL &&
+         s_network_menu_frequent_job_timer_hd != NULL;
 }
 
 static bool s_send_queue(lcd_task_queue_data_t *queue_data) {
@@ -784,20 +776,14 @@ bool lcd_task_update_ip_addr(uint32_t ipv4) {
   return s_send_queue(&queue_data);
 }
 
-bool lcd_task_update_throttle(int8_t percentage) { // TODO: app 레이어끼리 데이터 교환하지 말고 드라이버 직접 호출; 드라이버단에 접근제어 필요+드라이버 호출한 상태에서 task suspend되지 않게 주의 필요(Graceful task 종료 구현 필요)
-  lcd_task_queue_data_t queue_data;
-  queue_data.command = LCD_TASK_COMMAND_THROTTLE;
-  queue_data.data.throttle.percentage = percentage;
-
-  return s_send_queue(&queue_data);
+bool lcd_task_update_throttle(int8_t percentage) {
+  atomic_store(&s_latest_throttle, percentage);
+  return s_lcd_task_hd != NULL;
 }
 
 bool lcd_task_update_key(uint8_t degree) {
-  lcd_task_queue_data_t queue_data;
-  queue_data.command = LCD_TASK_COMMAND_KEY;
-  queue_data.data.key.degree = degree;
-
-  return s_send_queue(&queue_data);
+  atomic_store(&s_latest_key, degree);
+  return s_lcd_task_hd != NULL;
 }
 
 bool lcd_task_update_power_off(uint8_t countdown, bool is_low_power) {

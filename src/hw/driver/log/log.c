@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <pico/critical_section.h>
 
@@ -28,57 +29,34 @@ void log_set_level(log_level_t target) {
   s_log_level = target;
 }
 
-static inline void s_print_string(const char *s) {
-  critical_section_enter_blocking(&s_uart_lock);
-
-  uart_puts(HWCONF_SERIAL_DEBUG_ID, s);
-
-  critical_section_exit(&s_uart_lock);
-}
-
 static void s_log(log_level_t level, const char *tag, const char *format, va_list args) {
   if (level < s_log_level || level > LOG_MAX) {
     return;
   }
 
+  const char *color = "\e[0m";
+  char label = '?';
   switch (level) {
-  case LOG_DEBUG:
-    s_print_string("\e[90m"); // 회색
-    s_print_string("D (");
-    break;
-
-  case LOG_INFO:
-    s_print_string("\e[32m"); // 초록색
-    s_print_string("I (");
-    break;
-
-  case LOG_WARNING:
-    s_print_string("\e[33m"); // 주황색
-    s_print_string("W (");
-    break;
-
-  case LOG_ERROR:
-    s_print_string("\e[31m"); // 빨간색
-    s_print_string("E (");
-    break;
-
-  case LOG_NONE:
-  case LOG_MAX:
-  default:
-    break;
+  case LOG_DEBUG: color = "\e[90m"; label = 'D'; break;
+  case LOG_INFO: color = "\e[32m"; label = 'I'; break;
+  case LOG_WARNING: color = "\e[33m"; label = 'W'; break;
+  case LOG_ERROR: color = "\e[31m"; label = 'E'; break;
+  default: return;
   }
 
-  char buffer[256];
-  sprintf(buffer, "%u", time_get_millis());
-  s_print_string(buffer);
-  s_print_string(") ");
-  s_print_string(tag);
-  s_print_string(": ");
+  char line[320];
+  int prefix_len = snprintf(line, sizeof(line), "%s%c (%u) %s: ", color, label, time_get_millis(), tag);
+  if (prefix_len < 0) return;
+  size_t used = (size_t)prefix_len;
+  if (used > sizeof(line) - 7) used = sizeof(line) - 7;
+  line[used] = '\0';
+  vsnprintf(line + used, sizeof(line) - used - 6, format, args);
+  used += strlen(line + used);
+  snprintf(line + used, sizeof(line) - used, "\e[0m\r\n");
 
-  vsnprintf(buffer, sizeof(buffer), format, args);
-  s_print_string(buffer);
-  s_print_string("\e[0m");
-  s_print_string("\r\n");
+  critical_section_enter_blocking(&s_uart_lock);
+  uart_puts(HWCONF_SERIAL_DEBUG_ID, line);
+  critical_section_exit(&s_uart_lock);
 }
 
 void log_debug(const char *tag, const char *format, ...) {

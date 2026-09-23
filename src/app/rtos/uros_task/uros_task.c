@@ -2,6 +2,7 @@
 #include <stdatomic.h>
 
 #include <FreeRTOS.h>
+#include <semphr.h>
 #include <task.h>
 
 #include "rtos/central_task/central_task.h"
@@ -27,6 +28,11 @@
 static TaskHandle_t s_uros_task_hd = NULL;
 static StackType_t s_uros_task_buff[UROS_TASK_SIZE];
 static StaticTask_t s_uros_task_struct;
+static SemaphoreHandle_t s_task_stop_ack;
+static StaticSemaphore_t s_task_stop_ack_storage;
+static atomic_bool s_task_running = false;
+static atomic_bool s_task_stopped = true;
+static bool s_task_stop_result = true;
 
 static atomic_bool s_is_act_enabled = false;
 static void s_uros_sub_cb(
@@ -74,6 +80,10 @@ static void s_uros_req_cb(
     uros_srv_res_t *res) {
   switch (req_flag) {
   case UROS_SRV_ACTUATOR_ENABLE:
+    if (!atomic_load(&s_task_running)) {
+      res->actuator_enable.status = false;
+      break;
+    }
     res->actuator_enable.status = actuator_task_set_power(true,
                                                           req->actuator_enable.key_min_degree,
                                                           req->actuator_enable.key_max_degree,
@@ -112,137 +122,159 @@ static void s_task_start_melody(void) {
 static void s_uros_task(void *arg) {
   (void)arg;
 
-  s_is_act_enabled = false;
-
-  bool uros_connection = false;
-  uros_pub_data_t buff;
-  uint8_t domain_id = switch8_get_sum();
-  TickType_t last_sbc_domain_id_send_tick = 0;
-
-  sled_task_set_pattern(SLED_TASK_PATTERN_REFLASH);
-  s_task_start_melody();
-
-  static bool is_callback_set = false;
-  if (is_callback_set == false) {
-    is_callback_set = true;
-    uros_sub_set_callback(s_uros_sub_cb);
-    uros_srv_set_callback(s_uros_req_cb);
-  }
-
-  uros_set_domain_id(domain_id);
-  uros_init();
-
   for (;;) {
-    vTaskDelay(pdMS_TO_TICKS(100));
+    while (!atomic_load(&s_task_running)) {
+      if (!atomic_load(&s_task_stopped)) {
+        s_task_stop_result = true; // Stopped before the session started.
+        atomic_store(&s_task_stopped, true);
+        xSemaphoreGive(s_task_stop_ack);
+      }
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    ulTaskNotifyTake(pdTRUE, 0); // Discard IP notifications from the previous run.
+    s_is_act_enabled = false;
 
-    bool curr_connection = uros_is_connected();
+    bool uros_connection = false;
+    uros_pub_data_t buff;
+    uint8_t domain_id = switch8_get_sum();
+    TickType_t last_sbc_domain_id_send_tick = 0;
 
-    // connection change sled status update
-    if (uros_connection != curr_connection) {
-      uros_connection = curr_connection;
-      if (curr_connection == true) {
-        lcd_task_noti_uros_connected();
-        sled_task_set_pattern(SLED_TASK_PATTERN_SOLID);
-      } else {
+    sled_task_set_pattern(SLED_TASK_PATTERN_REFLASH);
+    s_task_start_melody();
+
+    static bool is_callback_set = false;
+    if (is_callback_set == false) {
+      is_callback_set = true;
+      uros_sub_set_callback(s_uros_sub_cb);
+      uros_srv_set_callback(s_uros_req_cb);
+    }
+
+    uros_set_domain_id(domain_id);
+    bool worker_started = uros_init();
+    if (!worker_started) log_error(TAG, "micro-ROS worker did not start");
+
+    while (atomic_load(&s_task_running)) {
+      vTaskDelay(pdMS_TO_TICKS(100));
+      if (!atomic_load(&s_task_running)) break;
+      if (!worker_started) {
+        worker_started = uros_init();
+        continue;
+      }
+
+      bool curr_connection = uros_is_connected();
+
+      // connection change sled status update
+      if (uros_connection != curr_connection) {
+        uros_connection = curr_connection;
+        if (curr_connection == true) {
+          lcd_task_noti_uros_connected();
+          sled_task_set_pattern(SLED_TASK_PATTERN_SOLID);
+        } else {
+          s_is_act_enabled = false;
+          lcd_task_noti_uros_disconnected();
+          actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
+          sled_task_set_pattern(SLED_TASK_PATTERN_REFLASH);
+        }
+      }
+
+      // check domain id and update when needed
+      uint8_t domain_id_temp = switch8_get_sum();
+      if (domain_id != domain_id_temp) {
+        domain_id = domain_id_temp;
+
+        uros_set_domain_id(domain_id);
+        mw_sbc_report_domain_id(domain_id);
+        last_sbc_domain_id_send_tick = xTaskGetTickCount();
+
+        if (curr_connection == true) {
+          s_is_act_enabled = false;
+          actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
+          bool stopped = uros_deinit();
+          vTaskDelay(pdMS_TO_TICKS(10)); // good to have
+          worker_started = atomic_load(&s_task_running) && stopped && uros_init();
+          if (!worker_started) log_error(TAG, "micro-ROS domain restart failed");
+
+          continue; // 이 시점에 분명히 연결 끊어져있음.
+        }
+      }
+
+      // report domain id to sbc
+      // TODO: SBC와 연결되는 시점에 바로 전송 (task alert 추가)
+      if (xTaskGetTickCount() - last_sbc_domain_id_send_tick >= pdMS_TO_TICKS(5000)) {
+        last_sbc_domain_id_send_tick = xTaskGetTickCount();
+        mw_sbc_report_domain_id(domain_id);
+      }
+
+      // if uros disconnected, continue
+      if (curr_connection == false) {
+        s_is_act_enabled = false;
+        continue;
+      }
+
+      // if ip changed, reinit uros due to rmw issue (related discussion: https://github.com/ros2/rmw/pull/344#issuecomment-1398861272)
+      int temp = ulTaskNotifyTake(pdTRUE, 0);
+      if (temp != 0) {
         s_is_act_enabled = false;
         lcd_task_noti_uros_disconnected();
         actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
-        sled_task_set_pattern(SLED_TASK_PATTERN_REFLASH);
+        actuator_task_set_rgbwled(0, 0, 0, 0);
+
+        bool stopped = uros_deinit();
+        vTaskDelay(pdMS_TO_TICKS(500));
+        worker_started = atomic_load(&s_task_running) && stopped && uros_init();
+        if (!worker_started) log_error(TAG, "micro-ROS IP restart failed");
+
+        uros_connection = false;
+
+        continue;
       }
+
+      buff.battery_voltage.value = battery_get_voltage();
+      uros_pub(UROS_PUB_BATTERY_VOLTAGE, &buff);
+
+      buff.emo_status.value = emo_get_status();
+      uros_pub(UROS_PUB_EMO_STATUS, &buff);
     }
-
-    // check domain id and update when needed
-    uint8_t domain_id_temp = switch8_get_sum();
-    if (domain_id != domain_id_temp) {
-      domain_id = domain_id_temp;
-
-      uros_set_domain_id(domain_id);
-      mw_sbc_report_domain_id(domain_id);
-      last_sbc_domain_id_send_tick = xTaskGetTickCount();
-
-      if (curr_connection == true) {
-        s_is_act_enabled = false;
-        uros_deinit();
-        vTaskDelay(pdMS_TO_TICKS(10)); // good to have
-        uros_init();
-
-        continue; // 이 시점에 분명히 연결 끊어져있음.
-      }
-    }
-
-    // report domain id to sbc
-    // TODO: SBC와 연결되는 시점에 바로 전송 (task alert 추가)
-    if (xTaskGetTickCount() - last_sbc_domain_id_send_tick >= pdMS_TO_TICKS(5000)) {
-      last_sbc_domain_id_send_tick = xTaskGetTickCount();
-      mw_sbc_report_domain_id(domain_id);
-    }
-
-    // if uros disconnected, continue
-    if (curr_connection == false) {
-      s_is_act_enabled = false;
-      continue;
-    }
-
-    // if ip changed, reinit uros due to rmw issue (related discussion: https://github.com/ros2/rmw/pull/344#issuecomment-1398861272)
-    int temp = ulTaskNotifyTake(pdTRUE, 0);
-    if (temp != 0) {
-      s_is_act_enabled = false;
-      lcd_task_noti_uros_disconnected();
-      actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
-      actuator_task_set_rgbwled(0, 0, 0, 0);
-
-      uros_deinit();
-      vTaskDelay(pdMS_TO_TICKS(500));
-      uros_init();
-
-      uros_connection = false;
-
-      continue;
-    }
-
-    buff.battery_voltage.value = battery_get_voltage();
-    uros_pub(UROS_PUB_BATTERY_VOLTAGE, &buff);
-
-    buff.emo_status.value = emo_get_status();
-    uros_pub(UROS_PUB_EMO_STATUS, &buff);
+    s_is_act_enabled = false;
+    s_task_stop_result = uros_deinit();
+    atomic_store(&s_task_stopped, true);
+    xSemaphoreGive(s_task_stop_ack);
   }
 }
 
 bool uros_task_init(void) {
-  if (s_uros_task_hd != NULL) {
-    return false;
+  if (atomic_load(&s_task_running) || !atomic_load(&s_task_stopped)) return false;
+  if (s_task_stop_ack == NULL) s_task_stop_ack = xSemaphoreCreateBinaryStatic(&s_task_stop_ack_storage);
+  if (s_task_stop_ack == NULL) return false;
+  if (s_uros_task_hd == NULL) {
+    s_uros_task_hd = xTaskCreateStatic(
+        s_uros_task, "uros", UROS_TASK_SIZE, NULL, configIDLE_TASK_PRIORITIES,
+        s_uros_task_buff, &s_uros_task_struct);
   }
-
-  s_uros_task_hd = xTaskCreateStatic(
-      s_uros_task,
-      "uros",
-      UROS_TASK_SIZE,
-      NULL,
-      configIDLE_TASK_PRIORITIES,
-      s_uros_task_buff,
-      &s_uros_task_struct);
-
+  if (s_uros_task_hd == NULL) return false;
+  atomic_store(&s_task_stopped, false);
+  atomic_store(&s_task_running, true);
   return true;
 }
 
 bool uros_task_deinit(void) {
-  if (s_uros_task_hd == NULL) {
-    // not created
-    return true;
-  }
-
-  vTaskDelete(s_uros_task_hd);
-  s_uros_task_hd = NULL;
+  if (!atomic_exchange(&s_task_running, false)) return atomic_load(&s_task_stopped) && s_task_stop_result;
   s_is_act_enabled = false;
-
-  uros_deinit();
-
   lcd_task_noti_uros_disconnected();
   actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
+  xSemaphoreTake(s_task_stop_ack, 0);
+  if (xSemaphoreTake(s_task_stop_ack, pdMS_TO_TICKS(10000)) != pdTRUE) {
+    log_error(TAG, "micro-ROS task stop timed out");
+    return false;
+  }
+  s_is_act_enabled = false;
+  bool power_off = actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
+  actuator_task_set_rgbwled(0, 0, 0, 0);
+  return s_task_stop_result && power_off;
 }
 
 void uros_task_noti_ip_changed(void) {
-  if (s_uros_task_hd == NULL) {
+  if (s_uros_task_hd == NULL || !atomic_load(&s_task_running)) {
     return;
   }
 
