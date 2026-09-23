@@ -427,23 +427,25 @@ bool mw_sbc_init(void) {
       rcv_stream_buffer_storage,
       &rcv_stream_buffer_struct);
 
-  s_snd_task_hd = xTaskCreateStatic(
+  s_snd_task_hd = xTaskCreateStaticAffinitySet(
       s_snd_task,
       "sbc_send",
       SND_TASK_SIZE,
       NULL,
       configMAX_PRIORITIES - 2,
       s_snd_task_buff,
-      &s_snd_task_struct);
+      &s_snd_task_struct,
+      1U << 0);
 
-  s_rcv_task_hd = xTaskCreateStatic(
+  s_rcv_task_hd = xTaskCreateStaticAffinitySet(
       s_rcv_task,
       "sbc_receive",
       RCV_TASK_SIZE,
       NULL,
       configMAX_PRIORITIES - 2,
       s_rcv_task_buff,
-      &s_rcv_task_struct);
+      &s_rcv_task_struct,
+      1U << 0);
 
   return true;
 }

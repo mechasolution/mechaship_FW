@@ -346,8 +346,10 @@ static void s_central_task(void *arg) {
       s_process_event(&queue_data, current_mode);
     }
 
-    // watch switch
+    // The power switch is physically held during bench tests.
+#ifndef MECHASHIP_TEST_HELD_POWER_SWITCH
     s_process_switch();
+#endif
 
     // low freq work
     if (xTaskGetTickCount() - last_low_freq_work_tick >= pdMS_TO_TICKS(1000)) {

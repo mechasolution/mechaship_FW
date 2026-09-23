@@ -739,7 +739,23 @@ bool lcd_task_init(void) {
 static bool s_send_queue(lcd_task_queue_data_t *queue_data) {
   bool ret = xQueueSend(s_lcd_task_queue_hd, queue_data, 0) == pdTRUE;
   if (ret == false) {
-    log_warning(TAG, "Publish queue full!! message dropped!!");
+    static TickType_t last_warning_tick = 0;
+    static uint32_t dropped_count = 0;
+    TickType_t now = xTaskGetTickCount();
+    uint32_t dropped_to_report = 0;
+
+    taskENTER_CRITICAL();
+    dropped_count++;
+    if (now - last_warning_tick >= pdMS_TO_TICKS(1000)) {
+      last_warning_tick = now;
+      dropped_to_report = dropped_count;
+      dropped_count = 0;
+    }
+    taskEXIT_CRITICAL();
+
+    if (dropped_to_report != 0) {
+      log_warning(TAG, "%lu LCD updates dropped", (unsigned long)dropped_to_report);
+    }
   }
 
   return ret;

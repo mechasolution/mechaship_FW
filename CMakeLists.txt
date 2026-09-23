@@ -6,6 +6,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(MECHASHIP_TEST_HELD_POWER_SWITCH "Ignore a held power switch during bench tests" OFF)
+
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
 
@@ -44,6 +46,10 @@ link_directories(lib/libmicroros)
 
 # SRC
 add_subdirectory(src)
+
+if(MECHASHIP_TEST_HELD_POWER_SWITCH)
+    target_compile_definitions(mechaship_fw PRIVATE MECHASHIP_TEST_HELD_POWER_SWITCH=1)
+endif()
 
 pico_set_program_name(mechaship_fw "mechaship_fw")
 pico_set_program_version(mechaship_fw "0.1")

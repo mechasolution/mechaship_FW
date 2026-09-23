@@ -69,14 +69,15 @@ bool uros_init(void) {
   }
 
   if (s_mw_uros_task_hd == NULL) {
-    s_mw_uros_task_hd = xTaskCreateStatic(
+    s_mw_uros_task_hd = xTaskCreateStaticAffinitySet(
         s_uros_task,
         "uros",
         MW_UROS_TASK_SIZE,
         NULL,
         configMAX_PRIORITIES - 2,
         s_mw_uros_task_buff,
-        &s_mw_uros_task_struct);
+        &s_mw_uros_task_struct,
+        1U << 0);
     cnt++;
   }
 

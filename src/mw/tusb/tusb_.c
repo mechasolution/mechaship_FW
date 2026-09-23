@@ -78,14 +78,16 @@ bool mw_tusb_init(void) {
       s_tusb_status_check_timer_callback,
       &s_tusb_status_check_timer_buff);
 
-  s_tusb_task_hd = xTaskCreateStatic(
+  // tusb_init() installs USBCTRL_IRQ on its current core. Keep the worker there.
+  s_tusb_task_hd = xTaskCreateStaticAffinitySet(
       s_tusb_task,
       "tusb",
       TUSB_TASK_SIZE,
       NULL,
       configMAX_PRIORITIES - 1,
       s_tusb_task_buff,
-      &s_tusb_task_struct);
+      &s_tusb_task_struct,
+      1U << 0);
 
   return s_tusb_task_hd != NULL;
 }

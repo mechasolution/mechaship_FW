@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdatomic.h>
 
 #include <FreeRTOS.h>
 #include <task.h>
@@ -27,7 +28,7 @@ static TaskHandle_t s_uros_task_hd = NULL;
 static StackType_t s_uros_task_buff[UROS_TASK_SIZE];
 static StaticTask_t s_uros_task_struct;
 
-static bool s_is_act_enabled = false;
+static atomic_bool s_is_act_enabled = false;
 static void s_uros_sub_cb(
     const uros_sub_data_flag_t data_flag,
     const uros_sub_data_t *data) {
@@ -73,7 +74,6 @@ static void s_uros_req_cb(
     uros_srv_res_t *res) {
   switch (req_flag) {
   case UROS_SRV_ACTUATOR_ENABLE:
-    s_is_act_enabled = true;
     res->actuator_enable.status = actuator_task_set_power(true,
                                                           req->actuator_enable.key_min_degree,
                                                           req->actuator_enable.key_max_degree,
@@ -81,6 +81,7 @@ static void s_uros_req_cb(
                                                           req->actuator_enable.key_pulse_180_degree,
                                                           req->actuator_enable.thruster_pulse_0_percentage,
                                                           req->actuator_enable.thruster_pulse_100_percentage);
+    s_is_act_enabled = res->actuator_enable.status;
     break;
 
   case UROS_SRV_ACTUATOR_DISABLE:
@@ -143,6 +144,7 @@ static void s_uros_task(void *arg) {
         lcd_task_noti_uros_connected();
         sled_task_set_pattern(SLED_TASK_PATTERN_SOLID);
       } else {
+        s_is_act_enabled = false;
         lcd_task_noti_uros_disconnected();
         actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
         sled_task_set_pattern(SLED_TASK_PATTERN_REFLASH);
@@ -159,6 +161,7 @@ static void s_uros_task(void *arg) {
       last_sbc_domain_id_send_tick = xTaskGetTickCount();
 
       if (curr_connection == true) {
+        s_is_act_enabled = false;
         uros_deinit();
         vTaskDelay(pdMS_TO_TICKS(10)); // good to have
         uros_init();
@@ -176,12 +179,14 @@ static void s_uros_task(void *arg) {
 
     // if uros disconnected, continue
     if (curr_connection == false) {
+      s_is_act_enabled = false;
       continue;
     }
 
     // if ip changed, reinit uros due to rmw issue (related discussion: https://github.com/ros2/rmw/pull/344#issuecomment-1398861272)
     int temp = ulTaskNotifyTake(pdTRUE, 0);
     if (temp != 0) {
+      s_is_act_enabled = false;
       lcd_task_noti_uros_disconnected();
       actuator_task_set_power(false, 0, 0, 0, 0, 0, 0);
       actuator_task_set_rgbwled(0, 0, 0, 0);
@@ -228,6 +233,7 @@ bool uros_task_deinit(void) {
 
   vTaskDelete(s_uros_task_hd);
   s_uros_task_hd = NULL;
+  s_is_act_enabled = false;
 
   uros_deinit();
 

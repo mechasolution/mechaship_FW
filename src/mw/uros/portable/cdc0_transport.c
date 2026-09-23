@@ -8,7 +8,7 @@
 
 #include <tusb.h>
 
-#include <uxr/client/profile/transport/custom/custom_transport.h>
+#include "cdc0_transports.h"
 
 void usleep(uint64_t us) {
   time_block_us(us);
@@ -33,13 +33,11 @@ bool cdc0_transport_close(struct uxrCustomTransport *transport) {
   return true;
 }
 
-size_t cdc0_transport_write(struct uxrCustomTransport *transport, uint8_t *buf, size_t len, uint8_t *errcode) {
+size_t cdc0_transport_write(struct uxrCustomTransport *transport, const uint8_t *buf, size_t len, uint8_t *errcode) {
   uint32_t len_sent = tud_cdc_n_write(0, buf, len);
   tud_cdc_n_write_flush(0);
 
-  if (len_sent != len_sent) {
-    *errcode = 1;
-  }
+  *errcode = len_sent == len ? 0 : 1;
 
   return len_sent;
 }

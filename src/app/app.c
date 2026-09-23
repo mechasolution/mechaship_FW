@@ -33,9 +33,11 @@ static bool s_test_hw(void) {
 
   time_block_ms(1900);
 
+#ifndef MECHASHIP_TEST_HELD_POWER_SWITCH
   while (power_get_button()) {
     ; // block until switch released
   }
+#endif
 
   led_test(false);
   rgbw_led_test(false);
