@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(MECHASHIP_TEST_HELD_POWER_SWITCH "Ignore a held power switch during bench tests" OFF)
+option(MECHASHIP_ESC_PROTECTION "Hold actuator outputs at zero during ESC startup" OFF)
 
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
@@ -49,6 +50,10 @@ add_subdirectory(src)
 
 if(MECHASHIP_TEST_HELD_POWER_SWITCH)
     target_compile_definitions(mechaship_fw PRIVATE MECHASHIP_TEST_HELD_POWER_SWITCH=1)
+endif()
+
+if(MECHASHIP_ESC_PROTECTION)
+    target_compile_definitions(mechaship_fw PRIVATE MECHASHIP_ESC_PROTECTION=1)
 endif()
 
 pico_set_program_name(mechaship_fw "mechaship_fw")

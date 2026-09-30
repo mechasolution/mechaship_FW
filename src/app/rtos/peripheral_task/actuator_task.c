@@ -19,6 +19,12 @@
 
 #define TAG "actuator"
 
+#ifdef MECHASHIP_ESC_PROTECTION
+#define ESC_PROTECTION_DURATION_MS 5000
+#define ESC_PROTECTION_BLINK_HALF_PERIOD_MS 125
+#define ESC_PROTECTION_COLOR rgbw_led_get_color(180, 55, 0, 0)
+#endif
+
 typedef struct {
   enum {
     ACTUATOR_TASK_COMMAND_NONE = 0x00,
@@ -72,6 +78,9 @@ static atomic_uint s_latest_throttle_bits;
 static atomic_uint s_latest_key_bits;
 static atomic_bool s_throttle_pending;
 static atomic_bool s_key_pending;
+#ifdef MECHASHIP_ESC_PROTECTION
+static atomic_bool s_power_off_pending;
+#endif
 typedef struct {
   uint32_t request_id;
   bool applied;
@@ -103,8 +112,52 @@ static void s_actuator_task(void *arg) {
   actuator_task_queue_data_t queue_data = {0};
   tone_task_queue_data_t tone_queue_data;
 
+#ifdef MECHASHIP_ESC_PROTECTION
+  bool esc_protection_active = false;
+  bool protection_led_on = false;
+  TickType_t protection_start_tick = 0;
+  TickType_t last_blink_tick = 0;
+  float requested_throttle = 0.0f;
+  float requested_key = 90.0f;
+  rgbw_color_data_t requested_led_color = 0;
+#endif
+
   for (;;) {
-    if (xQueueReceive(s_actuator_task_queue_hd, &queue_data, portMAX_DELAY) == pdTRUE) {
+    TickType_t receive_timeout = portMAX_DELAY;
+#ifdef MECHASHIP_ESC_PROTECTION
+    if (esc_protection_active) {
+      TickType_t now = xTaskGetTickCount();
+      TickType_t elapsed = now - protection_start_tick;
+      if (elapsed >= pdMS_TO_TICKS(ESC_PROTECTION_DURATION_MS)) {
+        esc_protection_active = false;
+        if (atomic_load(&s_throttle_pending)) {
+          uint32_t bits = atomic_load(&s_latest_throttle_bits);
+          memcpy(&requested_throttle, &bits, sizeof(requested_throttle));
+        }
+        if (atomic_load(&s_key_pending)) {
+          uint32_t bits = atomic_load(&s_latest_key_bits);
+          memcpy(&requested_key, &bits, sizeof(requested_key));
+        }
+        if (power_get_act() && !atomic_load(&s_power_off_pending)) {
+          actuator_set_thruster_percentage(requested_throttle);
+          actuator_set_key_degree(requested_key);
+        }
+        rgbw_led_set_pixels(requested_led_color);
+      } else {
+        TickType_t blink_elapsed = now - last_blink_tick;
+        if (blink_elapsed >= pdMS_TO_TICKS(ESC_PROTECTION_BLINK_HALF_PERIOD_MS)) {
+          protection_led_on = !protection_led_on;
+          rgbw_led_set_pixels(protection_led_on ? ESC_PROTECTION_COLOR : 0);
+          last_blink_tick = now;
+          blink_elapsed = 0;
+        }
+        TickType_t until_end = pdMS_TO_TICKS(ESC_PROTECTION_DURATION_MS) - elapsed;
+        TickType_t until_blink = pdMS_TO_TICKS(ESC_PROTECTION_BLINK_HALF_PERIOD_MS) - blink_elapsed;
+        receive_timeout = until_end < until_blink ? until_end : until_blink;
+      }
+    }
+#endif
+    if (xQueueReceive(s_actuator_task_queue_hd, &queue_data, receive_timeout) == pdTRUE) {
       switch (queue_data.command) {
       case ACTUATOR_TASK_COMMAND_THROTTLE:
         atomic_store(&s_throttle_pending, false);
@@ -112,7 +165,15 @@ static void s_actuator_task(void *arg) {
           uint32_t bits = atomic_load(&s_latest_throttle_bits);
           float percentage;
           memcpy(&percentage, &bits, sizeof(percentage));
+#ifdef MECHASHIP_ESC_PROTECTION
+          if (esc_protection_active) {
+            requested_throttle = percentage;
+          } else {
+            actuator_set_thruster_percentage(percentage);
+          }
+#else
           actuator_set_thruster_percentage(percentage);
+#endif
         }
         break;
 
@@ -122,50 +183,88 @@ static void s_actuator_task(void *arg) {
           uint32_t bits = atomic_load(&s_latest_key_bits);
           float degree;
           memcpy(&degree, &bits, sizeof(degree));
+#ifdef MECHASHIP_ESC_PROTECTION
+          if (esc_protection_active) {
+            requested_key = degree;
+          } else {
+            actuator_set_key_degree(degree);
+          }
+#else
           actuator_set_key_degree(degree);
+#endif
         }
         break;
 
-      case ACTUATOR_TASK_COMMAND_RGBWLED:
-        rgbw_led_set_pixels(rgbw_led_get_color(
+      case ACTUATOR_TASK_COMMAND_RGBWLED: {
+        rgbw_color_data_t color = rgbw_led_get_color(
             queue_data.data.rgbwled.red,
             queue_data.data.rgbwled.green,
             queue_data.data.rgbwled.blue,
-            queue_data.data.rgbwled.white));
+            queue_data.data.rgbwled.white);
+#ifdef MECHASHIP_ESC_PROTECTION
+        requested_led_color = color;
+        if (!esc_protection_active) rgbw_led_set_pixels(color);
+#else
+        rgbw_led_set_pixels(color);
+#endif
         break;
+      }
 
       case ACTUATOR_TASK_COMMAND_POWER: {
         bool target = queue_data.data.power.power_target;
-        if (power_get_act() != target || target) {
+        bool was_on = power_get_act();
+        if (was_on != target || target) {
           lcd_task_update_actuator_power(target);
           if (target) {
-            lcd_task_update_key(90);
-            lcd_task_update_throttle(0);
-            if (queue_data.data.power.key_pulse_180_degree == 0 && queue_data.data.power.thruster_pulse_100_percentage == 0) {
-              // Existing bench-test defaults for an empty calibration request.
-              queue_data.data.power.key_min_degree = 0;
-              queue_data.data.power.key_max_degree = 180;
-              queue_data.data.power.key_pulse_0_degree = 500;
-              queue_data.data.power.key_pulse_180_degree = 2500;
-              queue_data.data.power.thruster_pulse_0_percentage = 1500;
-              queue_data.data.power.thruster_pulse_100_percentage = 1900;
+#ifdef MECHASHIP_ESC_PROTECTION
+            if (!was_on) {
+#endif
+              lcd_task_update_key(90);
+              lcd_task_update_throttle(0);
+              if (queue_data.data.power.key_pulse_180_degree == 0 && queue_data.data.power.thruster_pulse_100_percentage == 0) {
+                // Existing bench-test defaults for an empty calibration request.
+                queue_data.data.power.key_min_degree = 0;
+                queue_data.data.power.key_max_degree = 180;
+                queue_data.data.power.key_pulse_0_degree = 500;
+                queue_data.data.power.key_pulse_180_degree = 2500;
+                queue_data.data.power.thruster_pulse_0_percentage = 1500;
+                queue_data.data.power.thruster_pulse_100_percentage = 1900;
+              }
+
+              actuator_set_key_info(queue_data.data.power.key_pulse_0_degree,
+                                    queue_data.data.power.key_pulse_180_degree,
+                                    queue_data.data.power.key_min_degree,
+                                    queue_data.data.power.key_max_degree);
+              actuator_set_thruster_info(queue_data.data.power.thruster_pulse_0_percentage,
+                                         queue_data.data.power.thruster_pulse_100_percentage);
+
+              actuator_set_key_degree(90);
+              actuator_set_thruster_percentage(0);
+              power_set_act(true);
+#ifdef MECHASHIP_ESC_PROTECTION
+              requested_throttle = 0.0f;
+              requested_key = 90.0f;
+              esc_protection_active = true;
+              protection_start_tick = xTaskGetTickCount();
+              last_blink_tick = protection_start_tick;
+              protection_led_on = true;
+              rgbw_led_set_pixels(ESC_PROTECTION_COLOR);
             }
-
-            actuator_set_key_info(queue_data.data.power.key_pulse_0_degree,
-                                  queue_data.data.power.key_pulse_180_degree,
-                                  queue_data.data.power.key_min_degree,
-                                  queue_data.data.power.key_max_degree);
-            actuator_set_thruster_info(queue_data.data.power.thruster_pulse_0_percentage,
-                                       queue_data.data.power.thruster_pulse_100_percentage);
-
-            actuator_set_key_degree(90);
-            actuator_set_thruster_percentage(0);
-            power_set_act(true);
+#endif
           } else {
             power_set_act(false);
             actuator_pwm_off();
+#ifdef MECHASHIP_ESC_PROTECTION
+            if (esc_protection_active) {
+              esc_protection_active = false;
+              rgbw_led_set_pixels(requested_led_color);
+            }
+#endif
           }
         }
+#ifdef MECHASHIP_ESC_PROTECTION
+        if (!target) atomic_store(&s_power_off_pending, false);
+#endif
         power_ack_t ack = {queue_data.data.power.request_id, power_get_act() == target};
         xQueueOverwrite(s_power_ack_queue, &ack);
         break;
@@ -319,6 +418,9 @@ bool actuator_task_set_power(bool power_target,
   bool queued;
   xQueueReset(s_power_ack_queue);
   if (!power_target) {
+#ifdef MECHASHIP_ESC_PROTECTION
+    atomic_store(&s_power_off_pending, true);
+#endif
     // Old motion commands must not delay or follow a power-off request.
     xQueueReset(s_actuator_task_queue_hd);
     atomic_store(&s_throttle_pending, false);
@@ -328,6 +430,9 @@ bool actuator_task_set_power(bool power_target,
     queued = s_send_queue(&queue_data);
   }
   if (!queued) {
+#ifdef MECHASHIP_ESC_PROTECTION
+    if (!power_target) atomic_store(&s_power_off_pending, false);
+#endif
     xSemaphoreGive(s_power_request_mutex);
     return false;
   }
